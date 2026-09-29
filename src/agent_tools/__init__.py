@@ -14,14 +14,33 @@ Sub-modules:
 import logging
 from collections import namedtuple
 
+<<<<<<< HEAD
+=======
+from src.tool_security import BUILTIN_EMAIL_TOOLS
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 from src.tool_utils import _truncate, get_mcp_manager, set_mcp_manager
 
 logger = logging.getLogger(__name__)
 
 from .subprocess_tools import BashTool, PythonTool
 from .web_tools import WebSearchTool, WebFetchTool
+<<<<<<< HEAD
 from .filesystem_tools import ReadFileTool, WriteFileTool, EditFileTool, LsTool, GlobTool, GrepTool, GetWorkspaceTool
 from .document_tools import CreateDocumentTool, UpdateDocumentTool, EditDocumentTool, SuggestDocumentTool, ManageDocumentTool
+=======
+from .filesystem_tools import ReadFileTool, WriteFileTool, EditFileTool, ApplyPatchTool, LsTool, GlobTool, GrepTool, GetWorkspaceTool
+from .coding_tools import TodoWriteTool
+from .document_tools import CreateDocumentTool, UpdateDocumentTool, EditDocumentTool, SuggestDocumentTool, ManageDocumentTool
+from .interaction_tools import AskUserTool, UpdatePlanTool
+from .model_interaction_tools import ChatWithModelTool, AskTeacherTool, ListModelsTool
+from .bg_job_tools import ManageBgJobsTool
+from .session_tools import CreateSessionTool, ListSessionsTool, SendToSessionTool, ManageSessionTool
+from .admin_tools import (
+    ADMIN_TOOL_HANDLERS,
+    do_manage_endpoints, do_manage_mcp, do_manage_webhooks,
+    do_manage_tokens, do_manage_settings,
+)
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 
 TOOL_HANDLERS = {
     "bash": BashTool().execute,
@@ -31,6 +50,11 @@ TOOL_HANDLERS = {
     "read_file": ReadFileTool().execute,
     "write_file": WriteFileTool().execute,
     "edit_file": EditFileTool().execute,
+<<<<<<< HEAD
+=======
+    "apply_patch": ApplyPatchTool().execute,
+    "todowrite": TodoWriteTool().execute,
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
     "ls": LsTool().execute,
     "glob": GlobTool().execute,
     "grep": GrepTool().execute,
@@ -40,7 +64,23 @@ TOOL_HANDLERS = {
     "suggest_document": SuggestDocumentTool().execute,
     "manage_documents": ManageDocumentTool().execute,
     "get_workspace": GetWorkspaceTool().execute,
+<<<<<<< HEAD
 }
+=======
+    "ask_user": AskUserTool().execute,
+    "update_plan": UpdatePlanTool().execute,
+    "chat_with_model": ChatWithModelTool().execute,
+    "ask_teacher": AskTeacherTool().execute,
+    "list_models": ListModelsTool().execute,
+    "manage_bg_jobs": ManageBgJobsTool().execute,
+    "create_session": CreateSessionTool().execute,
+    "list_sessions": ListSessionsTool().execute,
+    "send_to_session": SendToSessionTool().execute,
+    "manage_session": ManageSessionTool().execute,
+}
+# Config/integration admin tools (manage_endpoints/mcp/webhooks/tokens/settings).
+TOOL_HANDLERS.update(ADMIN_TOOL_HANDLERS)
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 
 # ---------------------------------------------------------------------------
 # Constants (re-exported for backward compatibility — single source of truth
@@ -51,8 +91,18 @@ SHELL_TIMEOUT = 60
 PYTHON_TIMEOUT = 30
 
 # Tool types that trigger execution
+<<<<<<< HEAD
 TOOL_TAGS = {"bash", "python", "web_search", "web_fetch", "read_file", "write_file", "edit_file",
              "grep", "glob", "ls", "get_workspace",
+=======
+<<<<<<<< HEAD:src/agent_tools.py
+TOOL_TAGS = {"bash", "python", "web_search", "web_fetch", "read_file", "write_file",
+========
+TOOL_TAGS = {"bash", "python", "web_search", "web_fetch", "read_file", "write_file", "edit_file",
+             "apply_patch", "todowrite",
+             "grep", "glob", "ls", "get_workspace", "manage_bg_jobs",
+>>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc:src/agent_tools/__init__.py
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
              "create_document", "update_document", "edit_document",
              "search_chats",
              "chat_with_model", "create_session", "list_sessions",
@@ -65,9 +115,16 @@ TOOL_TAGS = {"bash", "python", "web_search", "web_fetch", "read_file", "write_fi
              "manage_endpoints", "manage_mcp", "manage_webhooks",
              "manage_tokens", "manage_documents", "manage_settings",
              "manage_notes", "manage_calendar",
+<<<<<<< HEAD
              "resolve_contact", "manage_contact", "list_email_accounts", "send_email", "list_emails",
              "read_email", "reply_to_email", "bulk_email", "archive_email",
              "delete_email", "mark_email_read",
+=======
+             "resolve_contact", "manage_contact",
+             # Email tool names come from BUILTIN_EMAIL_TOOLS (unioned below)
+             # so the fence regex, dispatch, and non-admin blocklist all cover
+             # the same set.
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
              # Cookbook tools (LLM serving + downloads). Without these
              # entries, native function calls to e.g. list_served_models
              # are rejected as "Unknown function call" before reaching
@@ -84,7 +141,11 @@ TOOL_TAGS = {"bash", "python", "web_search", "web_fetch", "read_file", "write_fi
              # Generic loopback to any UI-button endpoint (cookbook,
              # gallery, email folders, etc.) — agent uses this when
              # there's no named tool wrapper for the action.
+<<<<<<< HEAD
              "app_api"}
+=======
+             "app_api"} | BUILTIN_EMAIL_TOOLS
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 
 ToolBlock = namedtuple("ToolBlock", ["tool_type", "content"])
 
@@ -127,10 +188,13 @@ from src.tool_implementations import (  # noqa: E402, F401
     do_search_chats,
     do_manage_skills,
     do_manage_tasks,
+<<<<<<< HEAD
     do_manage_endpoints,
     do_manage_mcp,
     do_manage_webhooks,
     do_manage_tokens,
     do_manage_settings,
+=======
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
     do_api_call,
 )

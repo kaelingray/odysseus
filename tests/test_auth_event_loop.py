@@ -99,7 +99,16 @@ def test_login_offloads_bcrypt_bearing_calls(monkeypatch):
 
     login = _login_endpoint(auth)
 
+<<<<<<< HEAD
     request = SimpleNamespace(client=SimpleNamespace(host="203.0.113.7"), cookies={})
+=======
+    request = SimpleNamespace(
+        client=SimpleNamespace(host="203.0.113.7"),
+        cookies={},
+        url=SimpleNamespace(scheme="http"),
+        headers={},
+    )
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
     response = MagicMock()
     body = LoginRequest(username="alice", password="hunter2", remember=True)
 

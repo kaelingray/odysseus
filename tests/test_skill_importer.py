@@ -1,4 +1,9 @@
 """Skill URL importer — GitHub path parsing."""
+<<<<<<< HEAD
+=======
+import ipaddress
+
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 import pytest
 
 from services.memory.skill_importer import (
@@ -11,6 +16,16 @@ from services.memory.skill_importer import (
 )
 
 
+<<<<<<< HEAD
+=======
+def _allow_fetch(monkeypatch):
+    monkeypatch.setattr(
+        "services.memory.skill_importer._resolve_and_check_url",
+        lambda url: [ipaddress.ip_address("93.184.216.34")],
+    )
+
+
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 def test_parse_github_blob_skill_md():
     src = parse_skill_source(
         "https://github.com/anthropics/skills/blob/main/skills/pdf/SKILL.md"
@@ -69,10 +84,14 @@ def test_fetch_bytes_rejects_cross_host_redirect(monkeypatch):
             return _Resp()
 
     monkeypatch.setattr("services.memory.skill_importer.httpx.Client", _Client)
+<<<<<<< HEAD
     monkeypatch.setattr(
         "services.memory.skill_importer.check_outbound_url",
         lambda url: (True, ""),
     )
+=======
+    _allow_fetch(monkeypatch)
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
     with pytest.raises(SkillImportError, match="redirect target"):
         _fetch_bytes("https://raw.githubusercontent.com/o/r/main/SKILL.md")
 
@@ -89,10 +108,14 @@ def test_list_github_dir_accepts_api_github_response(monkeypatch):
         "services.memory.skill_importer._fetch_text",
         lambda url: "# skill\n",
     )
+<<<<<<< HEAD
     monkeypatch.setattr(
         "services.memory.skill_importer.check_outbound_url",
         lambda url: (True, ""),
     )
+=======
+    _allow_fetch(monkeypatch)
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 
     class _Resp:
         url = "https://api.github.com/repos/o/r/contents?ref=main"
@@ -144,10 +167,14 @@ def _mock_httpx_client(monkeypatch, response):
             return response
 
     monkeypatch.setattr("services.memory.skill_importer.httpx.Client", _Client)
+<<<<<<< HEAD
     monkeypatch.setattr(
         "services.memory.skill_importer.check_outbound_url",
         lambda url: (True, ""),
     )
+=======
+    _allow_fetch(monkeypatch)
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 
 
 def test_list_github_dir_surfaces_rate_limit(monkeypatch):

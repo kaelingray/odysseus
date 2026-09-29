@@ -58,7 +58,11 @@ def test_content_fetcher_extracts_og_image_and_body_fallback(module, tmp_path, m
 
     monkeypatch.setattr(module, "CONTENT_CACHE_DIR", tmp_path)
     module.content_cache_index.clear()
+<<<<<<< HEAD
     monkeypatch.setattr(module, "_get_public_url", lambda url, headers, timeout: _FakeResponse(html))
+=======
+    monkeypatch.setattr(module, "_get_public_url", lambda url, headers, timeout, **kwargs: _FakeResponse(html))
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 
     result = module.fetch_webpage_content("https://example.com/parity-test")
 
@@ -82,7 +86,11 @@ def test_fetch_webpage_content_returns_empty_result_on_http_status_error(status_
     monkeypatch.setattr(
         service_content,
         "_get_public_url",
+<<<<<<< HEAD
         lambda url, headers, timeout: _FakeErrorResponse(status_code),
+=======
+        lambda url, headers, timeout, **kwargs: _FakeErrorResponse(status_code),
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
     )
 
     result = service_content.fetch_webpage_content(f"https://example.com/status-{status_code}")
@@ -119,7 +127,11 @@ def test_fetch_webpage_content_429_takes_distinct_rate_limit_path(tmp_path, monk
     monkeypatch.setattr(
         service_content,
         "_get_public_url",
+<<<<<<< HEAD
         lambda url, headers, timeout: _FakeRateLimitResponse(),
+=======
+        lambda url, headers, timeout, **kwargs: _FakeRateLimitResponse(),
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
     )
 
     result = service_content.fetch_webpage_content("https://example.com/rate-limited")

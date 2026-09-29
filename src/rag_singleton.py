@@ -7,6 +7,10 @@ import time
 from pathlib import Path
 
 from src.constants import RAG_DIR
+<<<<<<< HEAD
+=======
+from src.runtime_paths import get_app_root
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 
 logger = logging.getLogger(__name__)
 

@@ -1,10 +1,12 @@
-"""
-contacts_routes.py
+"""Backward-compat shim — canonical location is routes/contacts/contacts_routes.py.
 
-CardDAV contacts integration. Reads from local Radicale, supports
-search and adding new contacts.
+This module is replaced in ``sys.modules`` by the canonical module object so
+that ``import routes.contacts_routes``, ``from routes.contacts_routes import X``,
+``importlib.import_module("routes.contacts_routes")``, and string-targeted
+monkeypatches all operate on the same object the application actually uses.
 """
 
+<<<<<<< HEAD
 import re
 import logging
 import uuid
@@ -826,3 +828,10 @@ def setup_contacts_routes():
         return {"success": ok}
 
     return router
+=======
+import sys as _sys
+
+from routes.contacts import contacts_routes as _canonical  # noqa: F401
+
+_sys.modules[__name__] = _canonical
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc

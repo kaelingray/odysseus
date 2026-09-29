@@ -35,7 +35,11 @@ def _patch_fetch(monkeypatch, text, content_type):
     monkeypatch.setattr(
         content_mod,
         "_get_public_url",
+<<<<<<< HEAD
         lambda url, headers=None, timeout=5: _FakeResponse(text, content_type),
+=======
+        lambda url, headers=None, timeout=5, **kwargs: _FakeResponse(text, content_type),
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
     )
 
 

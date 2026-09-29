@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # routes/mcp_routes.py
 """MCP (Model Context Protocol) server management routes."""
 import json
@@ -15,11 +16,26 @@ from core.database import McpServer, SessionLocal
 from core.middleware import require_admin
 from src.constants import DATA_DIR, MCP_OAUTH_DIR
 from src.mcp_manager import McpManager
+=======
+"""Backward-compat shim — canonical location is routes/mcp/mcp_routes.py.
 
-logger = logging.getLogger(__name__)
+This module is replaced in ``sys.modules`` by the canonical module object so
+that ``import routes.mcp_routes``, ``from routes.mcp_routes import X``,
+``importlib.import_module("routes.mcp_routes")``, the
+``sys.modules.pop("routes.mcp_routes")`` + re-import pattern in
+test_security_regressions.py, and the ``monkeypatch.setattr(mcp_routes,
+"MCP_OAUTH_DIR", ...)`` pattern all operate on the *same* object. This also
+makes ``mcp_routes.__file__`` resolve to the canonical file (which the
+source-introspection at line 839 reads). Keeps existing import paths working
+after slice 2o (#4082/#4071).
+"""
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 
-router = APIRouter(prefix="/api/mcp", tags=["mcp"])
+import sys as _sys
 
+from routes.mcp import mcp_routes as _canonical  # noqa: F401
+
+<<<<<<< HEAD
 
 def _mcp_oauth_base_dir() -> Path:
     """Directory that may contain OAuth files managed by Odysseus."""
@@ -683,3 +699,6 @@ def _oauth_result_page(title: str, message: str, success: bool = False) -> str:
   <h2>{safe_title}</h2>
   <p>{safe_message}</p>
 </div></body></html>"""
+=======
+_sys.modules[__name__] = _canonical
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc

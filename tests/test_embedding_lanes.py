@@ -1,11 +1,15 @@
 import pytest
 
 from src.embedding_lanes import (
+<<<<<<< HEAD
     EmbeddingLane,
+=======
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
     LANE_CUSTOM,
     LANE_FASTEMBED,
     build_embedding_lanes,
 )
+<<<<<<< HEAD
 
 
 class FakeEmbedder:
@@ -129,11 +133,23 @@ def _patch_chroma(monkeypatch, fake):
     import src.chroma_client as chroma_client
 
     monkeypatch.setattr(chroma_client, "get_chroma_client", lambda: fake)
+=======
+from tests.helpers.embedding_lanes import (
+    FakeChroma,
+    FakeEmbedder,
+    FailingEmbedder,
+    patch_chroma,
+)
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 
 
 def test_build_embedding_lanes_keeps_custom_and_fastembed_dimensions_separate(monkeypatch):
     fake = FakeChroma()
+<<<<<<< HEAD
     _patch_chroma(monkeypatch, fake)
+=======
+    patch_chroma(monkeypatch, fake)
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 
     import src.embedding_lanes as lanes
 
@@ -182,7 +198,11 @@ def test_build_embedding_lanes_recreates_only_custom_when_fingerprint_changes(mo
         },
     )
     fast.add(ids=["fast"], embeddings=[[0.0] * 384], documents=["fast"])
+<<<<<<< HEAD
     _patch_chroma(monkeypatch, fake)
+=======
+    patch_chroma(monkeypatch, fake)
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 
     import src.embedding_lanes as lanes
 
@@ -214,7 +234,11 @@ def test_lane_reset_reembeds_existing_documents_on_fingerprint_change(monkeypatc
         documents=["existing custom memory"],
         metadatas=[{"source": "memory"}],
     )
+<<<<<<< HEAD
     _patch_chroma(monkeypatch, fake)
+=======
+    patch_chroma(monkeypatch, fake)
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 
     import src.embedding_lanes as lanes
 
@@ -251,7 +275,11 @@ def test_lane_reset_keeps_existing_collection_when_reembed_fails(monkeypatch):
         documents=["existing custom memory"],
         metadatas=[{"source": "memory"}],
     )
+<<<<<<< HEAD
     _patch_chroma(monkeypatch, fake)
+=======
+    patch_chroma(monkeypatch, fake)
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 
     import src.embedding_lanes as lanes
 
@@ -287,7 +315,11 @@ def test_lane_reset_keeps_existing_collection_when_preserve_read_fails(monkeypat
         raise RuntimeError("chroma read failed")
 
     old_custom.get = fail_get
+<<<<<<< HEAD
     _patch_chroma(monkeypatch, fake)
+=======
+    patch_chroma(monkeypatch, fake)
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 
     import src.embedding_lanes as lanes
 
@@ -322,7 +354,11 @@ def test_lane_reset_restores_existing_collection_when_rewrite_fails(monkeypatch)
         metadatas=[{"source": "memory"}],
     )
     fake.fail_next_add_for["odysseus_memories_custom"] = 1
+<<<<<<< HEAD
     _patch_chroma(monkeypatch, fake)
+=======
+    patch_chroma(monkeypatch, fake)
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 
     import src.embedding_lanes as lanes
 
@@ -344,7 +380,11 @@ def test_lane_reset_restores_existing_collection_when_rewrite_fails(monkeypatch)
 
 def test_build_embedding_lanes_uses_fastembed_when_custom_unavailable(monkeypatch):
     fake = FakeChroma()
+<<<<<<< HEAD
     _patch_chroma(monkeypatch, fake)
+=======
+    patch_chroma(monkeypatch, fake)
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 
     import src.embedding_lanes as lanes
 
@@ -411,6 +451,7 @@ def test_custom_lane_uses_http_down_latch(monkeypatch):
 
     assert calls == [{"url": None, "model": None, "api_key": None}]
     embeddings.reset_http_embed_state()
+<<<<<<< HEAD
 
 
 def test_memory_vector_store_writes_both_lanes_and_prefers_custom(monkeypatch):
@@ -1102,3 +1143,5 @@ def test_vector_rag_uses_keyword_fallback_when_all_lanes_query_fail():
 
     assert results[0]["id"] == "doc-1"
     assert results[0]["search_type"] == "keyword_fallback"
+=======
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc

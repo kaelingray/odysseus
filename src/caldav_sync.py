@@ -25,6 +25,10 @@ Design notes:
 import asyncio
 import hashlib
 import ipaddress
+<<<<<<< HEAD
+=======
+import json
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 import logging
 import os
 import socket
@@ -128,6 +132,20 @@ def validate_caldav_url(raw_url: str) -> str:
     return urlunparse(parsed._replace(fragment="")).rstrip("/")
 
 
+<<<<<<< HEAD
+=======
+def _event_etag(obj) -> str:
+    """Best-effort ETag extraction from python-caldav resources."""
+    try:
+        etag = getattr(obj, "etag", None)
+        if callable(etag):
+            etag = etag()
+        return str(etag or "")
+    except Exception:
+        return ""
+
+
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 def _stable_cal_id(remote_url: str, owner: str = "", account_id: str = "") -> str:
     """Deterministic local id for a remote CalDAV calendar, scoped to owner
     and account so two users — or one user with two accounts — pointing at
@@ -263,24 +281,26 @@ def _sync_blocking(owner: str, url: str, username: str, password: str, account_i
     # the integrations form still works, sync just no-ops with an error.
     from caldav.lib.error import AuthorizationError, NotFoundError
     from core.database import CalendarCal, CalendarEvent, SessionLocal
+    from routes.calendar_routes import _ensure_positive_duration
 
     result = {"calendars": 0, "events": 0, "deleted": 0, "errors": []}
 
     client = _build_dav_client(url, username, password)
+<<<<<<< HEAD
 
     # Discovery: try principal → calendars first; if the server doesn't
     # support discovery (or the URL points directly at a calendar), fall
     # back to treating the URL as a single calendar.
     calendars = []
+=======
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
     try:
-        principal = client.principal()
-        calendars = principal.calendars()
-    except (AuthorizationError, NotFoundError) as e:
-        result["errors"].append(f"Discovery failed: {e}")
-        return result
-    except Exception as e:
-        logger.info(f"CalDAV principal discovery failed, trying URL as calendar: {e}")
+        # Discovery: try principal → calendars first; if the server doesn't
+        # support discovery (or the URL points directly at a calendar), fall
+        # back to treating the URL as a single calendar.
+        calendars = []
         try:
+<<<<<<< HEAD
             calendars = [_open_url_as_calendar(client, url)]
         except Exception as e2:
             result["errors"].append(f"Could not open URL as calendar: {e2}")
@@ -289,15 +309,235 @@ def _sync_blocking(owner: str, url: str, username: str, password: str, account_i
     if not calendars:
         try:
             calendars = [_open_url_as_calendar(client, url)]
+=======
+            principal = client.principal()
+            calendars = principal.calendars()
+        except (AuthorizationError, NotFoundError) as e:
+            result["errors"].append(f"Discovery failed: {e}")
+            return result          # outer finally will call client.close()
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
         except Exception as e:
-            result["errors"].append(f"No calendars and URL fallback failed: {e}")
-            return result
+            logger.info(f"CalDAV principal discovery failed, trying URL as calendar: {e}")
+            try:
+                calendars = [_open_url_as_calendar(client, url)]
+            except Exception as e2:
+                result["errors"].append(f"Could not open URL as calendar: {e2}")
+                return result      # outer finally will call client.close()
 
-    start = datetime.utcnow() - timedelta(days=_LOOKBACK_DAYS)
-    end = datetime.utcnow() + timedelta(days=_LOOKAHEAD_DAYS)
+        if not calendars:
+            try:
+                calendars = [_open_url_as_calendar(client, url)]
+            except Exception as e:
+                result["errors"].append(f"No calendars and URL fallback failed: {e}")
+                return result      # outer finally will call client.close()
+
+        start = datetime.utcnow() - timedelta(days=_LOOKBACK_DAYS)
+        end = datetime.utcnow() + timedelta(days=_LOOKAHEAD_DAYS)
+
+        db = SessionLocal()        # if this raises, outer finally still calls client.close()
+        try:
+            for remote_cal in calendars:
+                try:
+                    remote_url = str(remote_cal.url)
+                    cal_id = _stable_cal_id(remote_url, owner=owner, account_id=account_id)
+                    display_name = (remote_cal.name or "").strip() or "CalDAV"
+
+                    local_cal = db.query(CalendarCal).filter(
+                        CalendarCal.id == cal_id,
+                        CalendarCal.owner == owner,
+                    ).first()
+                    if not local_cal:
+                        local_cal = CalendarCal(
+                            id=cal_id,
+                            owner=owner,
+                            name=display_name,
+                            color="#5b8abf",
+                            source="caldav",
+                            account_id=account_id or None,
+                            caldav_base_url=remote_url,
+                        )
+                        db.add(local_cal)
+                        db.commit()
+                    else:
+                        # Refresh display name and stamp CalDAV metadata if missing.
+                        changed = False
+                        if local_cal.name != display_name:
+                            local_cal.name = display_name
+                            changed = True
+                        if account_id and not local_cal.account_id:
+                            local_cal.account_id = account_id
+                            changed = True
+                        if local_cal.caldav_base_url != remote_url:
+                            local_cal.caldav_base_url = remote_url
+                            changed = True
+                        if changed:
+                            db.commit()
+                    result["calendars"] += 1
+
+                    # Fetch events in window. `date_search` returns CalendarObject
+                    # resources; each may contain one VEVENT (most servers) or
+                    # several (rare).
+                    from icalendar import Calendar as iCal
+
+                    seen_uids = set()
+                    # Track events added to the session but not yet committed so
+                    # duplicate UIDs within the same batch are updated, not re-inserted
+                    # (which would violates the UNIQUE constraint on commit).
+                    pending: dict = {}
+                    parse_failed = False
+                    try:
+                        objs = remote_cal.date_search(start=start, end=end, expand=False)
+                    except Exception as e:
+                        result["errors"].append(f"{display_name}: date_search failed ({e})")
+                        continue
+
+                    for obj in objs:
+                        try:
+                            ical = iCal.from_ical(obj.data)
+                        except Exception as e:
+                            result["errors"].append(f"{display_name}: parse failed ({e})")
+                            parse_failed = True
+                            continue
+
+                        for comp in ical.walk():
+                            if comp.name != "VEVENT":
+                                continue
+                            uid_val = str(comp.get("uid", "")) or str(uuid.uuid4())
+                            seen_uids.add(uid_val)
+
+                            dtstart_p = comp.get("dtstart")
+                            if not dtstart_p:
+                                continue
+                            start_dt, all_day = _to_utc_naive(dtstart_p.dt)
+
+                            dtend_p = comp.get("dtend")
+                            if dtend_p:
+                                end_dt, _ = _to_utc_naive(dtend_p.dt)
+                            elif all_day:
+                                end_dt = start_dt + timedelta(days=1)
+                            else:
+                                end_dt = start_dt + timedelta(hours=1)
+                            # A synced event with DTEND <= DTSTART (e.g. a single-day
+                            # all-day event whose source wrote DTEND equal to DTSTART)
+                            # would be stored zero-duration and silently dropped by the
+                            # list_events overlap filter. Clamp to a positive span.
+                            end_dt = _ensure_positive_duration(start_dt, end_dt, all_day)
+
+                            # is_utc reflects whether the source carried a TZ
+                            # we converted from. All-day = no TZ semantics.
+                            row_is_utc = (
+                                not all_day
+                                and isinstance(dtstart_p.dt, datetime)
+                                and dtstart_p.dt.tzinfo is not None
+                            )
+
+                            summary = str(comp.get("summary", ""))
+                            description = str(comp.get("description", ""))
+                            location = str(comp.get("location", ""))
+                            rrule = (
+                                comp.get("rrule").to_ical().decode()
+                                if comp.get("rrule")
+                                else ""
+                            )
+
+                            existing = _find_existing_event(db, pending, uid_val, local_cal.id)
+                            if existing:
+                                if existing.caldav_sync_pending in {"create", "update"}:
+                                    result["events"] += 1
+                                    continue
+                                existing.calendar_id = local_cal.id
+                                existing.summary = summary
+                                existing.description = description
+                                existing.location = location
+                                existing.dtstart = start_dt
+                                existing.dtend = end_dt
+                                existing.all_day = all_day
+                                existing.is_utc = row_is_utc
+                                existing.rrule = rrule
+                                existing.origin = "caldav"
+                                existing.remote_href = str(getattr(obj, "url", "") or "") or None
+                                existing.remote_etag = _event_etag(obj) or None
+                                existing.caldav_sync_pending = None
+                            else:
+                                new_ev = CalendarEvent(
+                                    uid=uid_val,
+                                    calendar_id=local_cal.id,
+                                    summary=summary,
+                                    description=description,
+                                    location=location,
+                                    dtstart=start_dt,
+                                    dtend=end_dt,
+                                    all_day=all_day,
+                                    is_utc=row_is_utc,
+                                    rrule=rrule,
+                                    origin="caldav",
+                                    remote_href=str(getattr(obj, "url", "") or "") or None,
+                                    remote_etag=_event_etag(obj) or None,
+                                )
+                                db.add(new_ev)
+                                pending[uid_val] = new_ev
+                            result["events"] += 1
+                    db.commit()
+
+                    # Prune locally-cached CalDAV events that vanished
+                    # upstream (only within our sync window — events outside
+                    # the window aren't in `objs`, so we'd false-delete them).
+                    # Only rows we previously pulled from the server (origin=="caldav")
+                    # are prunable; locally-created events (agent / email triage / a
+                    # UI event whose write-back failed) carry origin NULL and must
+                    # never be deleted just because the server didn't return them.
+                    # Skip the prune on any parse failure: seen_uids is then an
+                    # incomplete view of the server, so pruning against it would
+                    # delete events that still exist upstream but could not be read
+                    # (the empty-seen_uids case wipes the whole window; a partial
+                    # failure deletes just the unreadable rows).
+                    if _should_prune_window(seen_uids, parse_failed):
+                        stale = db.query(CalendarEvent).filter(
+                            CalendarEvent.calendar_id == local_cal.id,
+                            CalendarEvent.origin == "caldav",
+                            CalendarEvent.dtstart >= start,
+                            CalendarEvent.dtstart <= end,
+                            CalendarEvent.remote_href.isnot(None),
+                            CalendarEvent.caldav_sync_pending.is_(None),
+                            ~CalendarEvent.uid.in_(seen_uids) if seen_uids else CalendarEvent.uid.isnot(None),
+                        ).all()
+                        for ev in stale:
+                            db.delete(ev)
+                        result["deleted"] += len(stale)
+                        db.commit()
+                except Exception as e:
+                    logger.exception("CalDAV sync failed for one calendar")
+                    result["errors"].append(str(e)[:200])
+                    db.rollback()
+        finally:
+            db.close()             # NOT client.close() here anymore
+
+        return result
+    finally:
+        client.close()             # always called
+
+
+def _event_payload(ev) -> dict:
+    return {
+        "uid": ev.uid,
+        "summary": ev.summary,
+        "description": ev.description,
+        "location": ev.location,
+        "dtstart": ev.dtstart,
+        "dtend": ev.dtend,
+        "all_day": ev.all_day,
+        "is_utc": ev.is_utc,
+        "rrule": ev.rrule or "",
+        "recurrence_exdates": json.loads(ev.recurrence_exdates or "[]") if getattr(ev, "recurrence_exdates", "") else [],
+    }
+
+
+def _load_event_for_writeback(owner: str, uid: str) -> tuple[str, str, dict] | None:
+    from core.database import CalendarCal, CalendarEvent, SessionLocal
 
     db = SessionLocal()
     try:
+<<<<<<< HEAD
         for remote_cal in calendars:
             try:
                 remote_url = str(remote_cal.url)
@@ -452,12 +692,111 @@ def _sync_blocking(owner: str, url: str, username: str, password: str, account_i
                 logger.exception("CalDAV sync failed for one calendar")
                 result["errors"].append(str(e)[:200])
                 db.rollback()
+=======
+        ev = (
+            db.query(CalendarEvent)
+            .join(CalendarCal)
+            .filter(CalendarEvent.uid == uid, CalendarCal.owner == owner)
+            .first()
+        )
+        if not ev or not ev.calendar or ev.calendar.source != "caldav":
+            return None
+        return ev.calendar.source, ev.calendar.id, _event_payload(ev)
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
     finally:
         db.close()
 
-    return result
+
+def _load_delete_for_writeback(owner: str, uid: str) -> tuple[str, str, dict] | None:
+    from core.database import CalendarCal, CalendarDeletedEvent, CalendarEvent, SessionLocal
+
+    db = SessionLocal()
+    try:
+        tombstone = db.query(CalendarDeletedEvent).filter(
+            CalendarDeletedEvent.uid == uid,
+            CalendarDeletedEvent.owner == owner,
+        ).first()
+        if tombstone:
+            return "caldav", tombstone.calendar_id, {"uid": uid}
+
+        ev = (
+            db.query(CalendarEvent)
+            .join(CalendarCal)
+            .filter(CalendarEvent.uid == uid, CalendarCal.owner == owner)
+            .first()
+        )
+        if not ev or not ev.calendar or ev.calendar.source != "caldav":
+            return None
+        return ev.calendar.source, ev.calendar.id, {"uid": uid}
+    finally:
+        db.close()
 
 
+def _pending_writeback_uids(owner: str) -> tuple[list[str], list[str]]:
+    from core.database import CalendarCal, CalendarDeletedEvent, CalendarEvent, SessionLocal
+
+    db = SessionLocal()
+    try:
+        rows = (
+            db.query(CalendarEvent.uid)
+            .join(CalendarCal)
+            .filter(
+                CalendarCal.owner == owner,
+                CalendarCal.source == "caldav",
+                CalendarEvent.status != "cancelled",
+                (
+                    (CalendarEvent.caldav_sync_pending.isnot(None))
+                    | (CalendarEvent.remote_href.is_(None))
+                ),
+            )
+            .all()
+        )
+        delete_rows = (
+            db.query(CalendarDeletedEvent.uid)
+            .filter(CalendarDeletedEvent.owner == owner)
+            .all()
+        )
+        return [row[0] for row in rows], [row[0] for row in delete_rows]
+    finally:
+        db.close()
+
+
+def _load_caldav_accounts(owner: str) -> list:
+    """Return the list of CalDAV accounts for *owner*, auto-migrating the legacy
+    single-account ``caldav`` key to the new ``caldav_accounts`` list on first call.
+
+    The save step is best-effort: if ``_save_for_user`` is unavailable (e.g. in a
+    test with a minimal prefs mock) the migrated accounts are still returned; the
+    next real call will just re-run the cheap migration again.
+    """
+    import uuid as _uuid
+    from routes.prefs_routes import _load_for_user
+
+    prefs = _load_for_user(owner) or {}
+    if "caldav_accounts" in prefs:
+        return list(prefs["caldav_accounts"] or [])
+    # Migrate legacy single-account config to the list format.
+    legacy = prefs.get("caldav", {}) or {}
+    if legacy.get("url"):
+        accounts = [{
+            "id": str(_uuid.uuid4()),
+            "label": "CalDAV",
+            "url": legacy["url"],
+            "username": legacy.get("username", ""),
+            "password": legacy.get("password", ""),
+        }]
+        prefs["caldav_accounts"] = accounts
+        prefs.pop("caldav", None)
+        try:
+            from routes.prefs_routes import _save_for_user
+            _save_for_user(owner, prefs)
+        except (ImportError, AttributeError):
+            pass  # best-effort; next call re-migrates from the still-present legacy key
+        return accounts
+    return []
+
+
+<<<<<<< HEAD
 def _load_caldav_accounts(owner: str) -> list:
     """Return the list of CalDAV accounts for *owner*, auto-migrating the legacy
     single-account ``caldav`` key to the new ``caldav_accounts`` list on first call.
@@ -498,6 +837,13 @@ async def sync_caldav(owner: str) -> dict:
     Returns aggregated counts + per-account errors."""
     from src.secret_storage import decrypt
 
+=======
+async def sync_caldav(owner: str) -> dict:
+    """Pull CalDAV state into local DB for `owner` across all configured accounts.
+    Returns aggregated counts + per-account errors."""
+    from src.secret_storage import decrypt
+
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
     accounts = _load_caldav_accounts(owner)
     if not accounts:
         return {
@@ -533,3 +879,72 @@ async def sync_caldav(owner: str) -> dict:
         for err in result.get("errors", []):
             totals["errors"].append(f"{label}: {err}")
     return totals
+<<<<<<< HEAD
+=======
+
+
+async def push_event_create(owner: str, uid: str) -> dict:
+    loaded = _load_event_for_writeback(owner, uid)
+    if not loaded:
+        return {"ok": True, "skipped": True}
+    source, calendar_id, payload = loaded
+    from src.caldav_writeback import writeback_event
+    return await writeback_event(owner, source, calendar_id, payload)
+
+
+async def push_event_update(owner: str, uid: str) -> dict:
+    return await push_event_create(owner, uid)
+
+
+async def push_event_delete(owner: str, uid: str) -> dict:
+    loaded = _load_delete_for_writeback(owner, uid)
+    if not loaded:
+        return {"ok": True, "skipped": True}
+    source, calendar_id, payload = loaded
+    from src.caldav_writeback import writeback_event
+    return await writeback_event(owner, source, calendar_id, payload, delete=True)
+
+
+async def push_pending_events(owner: str) -> dict:
+    result = {"events": 0, "errors": []}
+    uids, delete_uids = _pending_writeback_uids(owner)
+    for event_uid in uids:
+        try:
+            out = await push_event_update(owner, event_uid)
+            if out.get("ok"):
+                result["events"] += 1
+            elif not out.get("skipped"):
+                result["errors"].append(f"{event_uid}: {str(out.get('error') or out)[:160]}")
+        except Exception as e:
+            logger.warning("CalDAV pending push failed for uid=%s: %s", event_uid, e)
+            result["errors"].append(f"{event_uid}: {str(e)[:160]}")
+    for event_uid in delete_uids:
+        try:
+            out = await push_event_delete(owner, event_uid)
+            if out.get("ok"):
+                result["events"] += 1
+            elif not out.get("skipped"):
+                result["errors"].append(f"{event_uid}: {str(out.get('error') or out)[:160]}")
+        except Exception as e:
+            logger.warning("CalDAV pending delete failed for uid=%s: %s", event_uid, e)
+            result["errors"].append(f"{event_uid}: {str(e)[:160]}")
+    return result
+
+
+async def sync_caldav_direction(owner: str, direction: str = "pull") -> dict:
+    direction = (direction or "pull").strip().lower()
+    if direction == "pull":
+        return await sync_caldav(owner)
+    if direction == "push":
+        return await push_pending_events(owner)
+    if direction == "both":
+        pushed = await push_pending_events(owner)
+        pulled = await sync_caldav(owner)
+        return {"push": pushed, "pull": pulled}
+    return {
+        "calendars": 0,
+        "events": 0,
+        "deleted": 0,
+        "errors": [f"Unsupported CalDAV sync direction: {direction}"],
+    }
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc

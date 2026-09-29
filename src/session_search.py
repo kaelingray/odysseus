@@ -207,6 +207,10 @@ def _search_like(
     )
     if not include_archived:
         q = q.filter(DBSession.archived == False)
+<<<<<<< HEAD
+=======
+    q = q.filter(~DBSession.name.like("SFT trace batch%"))
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
     if restrict_owner:
         q = _owner_filter(q, owner, include_legacy_owner)
     rows = q.order_by(DBChatMessage.timestamp.desc()).limit(limit).all()
@@ -270,6 +274,10 @@ def _search_fts(
         WHERE chat_messages_fts MATCH :fts_query
           {archived_clause}
           {owner_clause}
+<<<<<<< HEAD
+=======
+          AND s.name NOT LIKE 'SFT trace batch%'
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
           AND m.role IN ('user', 'assistant')
         ORDER BY bm25(chat_messages_fts), m.timestamp DESC
         LIMIT :limit

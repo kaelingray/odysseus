@@ -5,6 +5,10 @@ import importlib
 import importlib.util
 import json
 import os
+<<<<<<< HEAD
+=======
+import socket
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -13,6 +17,11 @@ import pytest
 
 from routes.shell_routes import (
     _find_line_break,
+<<<<<<< HEAD
+=======
+    _host_docker_access_enabled,
+    _import_optional_dependency_for_status,
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
     _running_in_container,
     _docker_row_status,
     _package_installed_from_probe,
@@ -215,13 +224,31 @@ class TestDockerRowStatus:
         assert status.applicable is False
         assert status.install_hint == DOCKER_IN_CONTAINER_HINT
 
+<<<<<<< HEAD
     def test_in_container_but_present_is_applicable_with_default_hint(self):
+=======
+    def test_in_container_cli_without_opt_in_is_not_applicable(self):
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
         status = _docker_row_status(
             on_remote=False,
             in_container=True,
             installed=True,
             default_hint=self.DEFAULT,
         )
+<<<<<<< HEAD
+=======
+        assert status.applicable is False
+        assert status.install_hint == DOCKER_IN_CONTAINER_HINT
+
+    def test_in_container_opt_in_with_socket_is_applicable(self):
+        status = _docker_row_status(
+            on_remote=False,
+            in_container=True,
+            installed=True,
+            default_hint=self.DEFAULT,
+            host_docker_access=True,
+        )
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
         assert status.applicable is True
         assert status.install_hint == self.DEFAULT
 
@@ -259,7 +286,55 @@ class TestDockerRowStatus:
         lowered = DOCKER_IN_CONTAINER_HINT.lower()
         assert "remote" in lowered
         assert "socket" in lowered
+<<<<<<< HEAD
         assert "host-root" in lowered or "host root" in lowered
+=======
+        assert "high-trust" in lowered
+        assert "docker/host-docker.yml" in lowered
+
+
+class TestHostDockerAccess:
+    def test_opt_in_without_socket_is_disabled(self, monkeypatch, tmp_path):
+        monkeypatch.setenv("ODYSSEUS_ENABLE_HOST_DOCKER", "true")
+
+        assert _host_docker_access_enabled(str(tmp_path / "missing.sock")) is False
+
+    def test_regular_file_is_not_accepted(self, monkeypatch, tmp_path):
+        socket_path = tmp_path / "docker.sock"
+        socket_path.touch()
+        monkeypatch.setenv("ODYSSEUS_ENABLE_HOST_DOCKER", "true")
+
+        assert _host_docker_access_enabled(str(socket_path)) is False
+
+    @pytest.mark.parametrize("flag", [None, "false"])
+    def test_socket_without_explicit_opt_in_is_disabled(
+        self,
+        monkeypatch,
+        tmp_path,
+        flag,
+    ):
+        socket_path = tmp_path / "docker.sock"
+        with socket.socket(socket.AF_UNIX) as unix_socket:
+            unix_socket.bind(str(socket_path))
+            if flag is None:
+                monkeypatch.delenv("ODYSSEUS_ENABLE_HOST_DOCKER", raising=False)
+            else:
+                monkeypatch.setenv("ODYSSEUS_ENABLE_HOST_DOCKER", flag)
+
+            assert _host_docker_access_enabled(str(socket_path)) is False
+
+    def test_explicit_opt_in_with_unix_socket_is_enabled(
+        self,
+        monkeypatch,
+        tmp_path,
+    ):
+        socket_path = tmp_path / "docker.sock"
+        with socket.socket(socket.AF_UNIX) as unix_socket:
+            unix_socket.bind(str(socket_path))
+            monkeypatch.setenv("ODYSSEUS_ENABLE_HOST_DOCKER", "true")
+
+            assert _host_docker_access_enabled(str(socket_path)) is True
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 
 
 class TestPackageProbeStatus:
@@ -376,6 +451,29 @@ class TestPackageProbeStatus:
         assert "add_user_install_bins_to_path()" in script
         assert "shutil.which(b)" in script
 
+<<<<<<< HEAD
+=======
+    def test_status_import_prepares_optional_dependency(self, monkeypatch):
+        import routes.shell_routes as shell_routes
+
+        calls = []
+        monkeypatch.setattr(
+            shell_routes,
+            "prepare_optional_dependency_import",
+            lambda name: calls.append(name),
+        )
+        monkeypatch.setattr(
+            shell_routes.importlib,
+            "import_module",
+            lambda name: SimpleNamespace(__name__=name),
+        )
+
+        module = _import_optional_dependency_for_status("realesrgan")
+
+        assert module.__name__ == "realesrgan"
+        assert calls == ["realesrgan"]
+
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 
 class TestSshBaseArgv:
     def test_basic_host_no_port(self):

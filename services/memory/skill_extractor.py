@@ -66,18 +66,28 @@ def _has_duplicate_title(skills, title: str) -> bool:
 def _extract_json_object(text: str) -> Optional[dict]:
     """Best-effort extraction of a JSON object from an LLM response.
 
+<<<<<<< HEAD
     The response may be wrapped in code fences or surrounded by prose, and some
     models emit a stray brace in the prose before the real object
     (e.g. "uses {placeholder} then {...}"). Slicing first-'{' .. last-'}' then
     grabs an unparseable span and the skill is silently lost. Try the whole
     string first, then each '{' start position in turn, returning the first
     candidate that parses to a JSON object (dict). Returns None if none do.
+=======
+    The response may be wrapped in code fences or surrounded by prose. Uses
+    json.JSONDecoder().raw_decode() to locate the boundaries of complete JSON
+    objects starting at each '{' position. Nested objects are filtered out to
+    keep only top-level candidates. If multiple non-overlapping valid JSON
+    objects are found, it is treated as ambiguous and returns None. Otherwise,
+    returns the single valid candidate dictionary.
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
     """
     if not text:
         return None
     s = text.strip()
     if s.startswith("```"):
         s = s.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+<<<<<<< HEAD
     end = s.rfind("}")
     if end == -1:
         return None
@@ -101,6 +111,47 @@ def _extract_json_object(text: str) -> Optional[dict]:
             return obj
         start = s.find("{", start + 1)
     return None
+=======
+
+    decoder = json.JSONDecoder()
+    candidates = []
+
+    start = s.find("{")
+    while start != -1:
+        try:
+            obj, idx = decoder.raw_decode(s[start:])
+            end_pos = start + idx
+            if isinstance(obj, dict):
+                candidates.append((start, end_pos, obj))
+        except (json.JSONDecodeError, ValueError):
+            pass
+        start = s.find("{", start + 1)
+
+    # Filter out nested candidates to identify top-level dictionaries
+    top_level = []
+    for c in candidates:
+        is_nested = False
+        for other in candidates:
+            if other == c:
+                continue
+            if other[0] <= c[0] and c[1] <= other[1]:
+                is_nested = True
+                break
+        if not is_nested:
+            top_level.append(c)
+
+    if not top_level:
+        return None
+
+    if len(top_level) > 1:
+        logger.debug(
+            "[skill-extract] Found multiple non-overlapping JSON objects: %s",
+            [item[2].get("title") for item in top_level]
+        )
+        return None
+
+    return top_level[0][2]
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 
 
 async def maybe_extract_skill(

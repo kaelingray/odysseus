@@ -1,12 +1,18 @@
-"""History routes — session history, truncation, fork, conversation topics."""
+"""Backward-compat shim — canonical location is routes/history/history_routes.py.
 
-import json
-import uuid
-import logging
-from typing import Dict, Any
+This module is replaced in ``sys.modules`` by the canonical module object so
+that ``import routes.history_routes``, ``from routes.history_routes import X``,
+``importlib.import_module("routes.history_routes")``, and the
+``import ... as history_routes`` + ``monkeypatch.setattr(history_routes, ...)``
+pattern used by test_history_compact_tool_calls.py / test_fork_session_metadata.py
+all operate on the *same* object the application actually uses. Keeps existing
+import paths working after slice 2d (#4082/#4071). Source-introspection tests
+read the canonical file by path.
+"""
 
-from fastapi import APIRouter, Request, HTTPException
+import sys as _sys
 
+<<<<<<< HEAD
 from core.models import ChatMessage
 from core.database import SessionLocal, ChatMessage as DbChatMessage, Session as DbSession
 from src.topic_analyzer import analyze_topics
@@ -660,3 +666,8 @@ def setup_history_routes(session_manager) -> APIRouter:
             raise HTTPException(500, str(e))
 
     return router
+=======
+from routes.history import history_routes as _canonical  # noqa: F401
+
+_sys.modules[__name__] = _canonical
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc

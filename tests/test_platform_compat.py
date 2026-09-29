@@ -153,6 +153,10 @@ def test_get_wsl_windows_user_profile_prefers_powershell(monkeypatch):
 
 
 def test_get_wsl_windows_user_profile_falls_back_to_users_dir(monkeypatch):
+<<<<<<< HEAD
+=======
+    import os
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
     monkeypatch.setattr(platform_compat, "is_wsl", lambda: True)
 
     def raise_run(*_a, **_k):
@@ -166,11 +170,22 @@ def test_get_wsl_windows_user_profile_falls_back_to_users_dir(monkeypatch):
     )
 
     def fake_isdir(path):
+<<<<<<< HEAD
         return path in {"/mnt/c/Users", "/mnt/c/Users/alice"}
 
     monkeypatch.setattr(platform_compat.os.path, "isdir", fake_isdir)
 
     assert platform_compat.get_wsl_windows_user_profile() == "/mnt/c/Users/alice"
+=======
+        return os.path.normpath(path) in {
+            os.path.normpath("/mnt/c/Users"),
+            os.path.normpath("/mnt/c/Users/alice")
+        }
+
+    monkeypatch.setattr(platform_compat.os.path, "isdir", fake_isdir)
+
+    assert platform_compat.get_wsl_windows_user_profile() == os.path.join("/mnt/c/Users", "alice")
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 
 
 def test_get_wsl_windows_user_profile_returns_none_when_nothing_found(monkeypatch):

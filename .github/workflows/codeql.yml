@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # CodeQL code scanning
 #
 # Purpose: GitHub's own static analysis engine reads the application source
@@ -30,12 +31,29 @@ permissions: {}
 concurrency:
   group: codeql-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+=======
+name: CodeQL
+
+# Advanced setup so CodeQL also runs on pull requests (including from forks),
+# surfacing findings before merge instead of only after a change lands on dev.
+on:
+  push:
+    branches: [dev, main]
+  pull_request:
+    branches: [dev]
+  schedule:
+    - cron: "17 3 * * 1"
+
+permissions:
+  contents: read
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 
 jobs:
   analyze:
     name: Analyze (${{ matrix.language }})
     runs-on: ubuntu-latest
     permissions:
+<<<<<<< HEAD
       contents: read
       security-events: write  # publish results to the Security tab
     strategy:
@@ -57,5 +75,26 @@ jobs:
 
       - name: Perform CodeQL analysis
         uses: github/codeql-action/analyze@03e4368ac7daa2bd82b3e85262f3bf87ee112f57  # v3.36.0
+=======
+      security-events: write
+      actions: read
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [actions, javascript-typescript, python]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd  # v4.37.7
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: none
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd  # v4.37.7
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
         with:
           category: "/language:${{ matrix.language }}"

@@ -37,12 +37,20 @@ jobs:
       contents: read
     steps:
       - name: Checkout repository
+<<<<<<< HEAD
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+=======
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
         with:
           persist-credentials: false
 
       - name: Lint Dockerfile
+<<<<<<< HEAD
         uses: hadolint/hadolint-action@2332a7b74a6de0dda2e2221d575162eba76ba5e5  # v3.3.0
+=======
+        uses: hadolint/hadolint-action@2a66e89f53d0771bb131a7fa31f3136336094aa6  # v3.4.0
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
         with:
           dockerfile: Dockerfile
           # DL3008: pinning apt package versions is impractical on a -slim base

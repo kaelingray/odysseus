@@ -1,5 +1,6 @@
 """Preset routes — /api/presets GET, /api/presets/custom POST, user templates CRUD."""
 
+import asyncio
 import logging
 import uuid
 from typing import Dict, Any, List
@@ -102,7 +103,11 @@ def setup_preset_routes(preset_manager) -> APIRouter:
         try:
             model_spec = data.get("model") or ""
             user = effective_user(request)
+<<<<<<< HEAD
             url, model, headers = _resolve_model(model_spec, owner=user)
+=======
+            url, model, headers = await asyncio.to_thread(_resolve_model, model_spec, owner=user)
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
             result = await llm_call_async(url, model, messages, temperature=0.8, max_tokens=500, headers=headers)
             return {"success": True, "prompt": result.strip()}
         except Exception as e:

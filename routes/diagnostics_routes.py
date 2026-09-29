@@ -1,12 +1,17 @@
 """Diagnostics routes — /api/db/stats, /api/rag/stats, /api/test/youtube, /api/test-research."""
 
 import logging
+import os
 from typing import Dict, Any
 
 from fastapi import APIRouter, HTTPException, Form, Request
 
 from services.youtube.youtube_handler import extract_youtube_id, extract_transcript_async
+<<<<<<< HEAD
 from core.constants import DEFAULT_HOST
+=======
+from core.constants import DEFAULT_HOST, DATA_DIR
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 from core.middleware import require_admin
 
 logger = logging.getLogger(__name__)
@@ -28,6 +33,33 @@ def setup_diagnostics_routes(
         from src.service_health import collect_service_health
         return await collect_service_health(rag_manager, memory_vector)
 
+<<<<<<< HEAD
+=======
+    @router.get("/api/diagnostics/logs")
+    async def get_diagnostics_logs(request: Request, limit: int = 200) -> Dict[str, Any]:
+        require_admin(request)
+        limit = max(1, min(limit, 1000))
+        try:
+            log_file = os.path.join(DATA_DIR, "logs", "app.log")
+            if not os.path.exists(log_file):
+                return {"status": "success", "logs": []}
+
+            # Safe tail read of the log file (max 5MB via rotation)
+            with open(log_file, "r", encoding="utf-8", errors="ignore") as f:
+                lines = f.readlines()
+
+            tail_lines = lines[-limit:] if len(lines) > limit else lines
+            tail_lines = [line.rstrip('\r\n') for line in tail_lines]
+
+            return {
+                "status": "success",
+                "logs": tail_lines
+            }
+        except Exception as e:
+            logger.error(f"Diagnostics logs retrieval error: {e}")
+            raise HTTPException(500, f"Failed to retrieve logs: {str(e)}")
+
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
     @router.get("/api/db/stats")
     async def get_database_stats(request: Request) -> Dict[str, Any]:
         require_admin(request)

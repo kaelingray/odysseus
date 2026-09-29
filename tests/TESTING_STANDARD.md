@@ -24,7 +24,11 @@ The goal is not only to reorganize `tests/`. The goal is for the suite to be a
 reliable foundation for future development: deterministic, modular, informative,
 behavior-focused, and complete enough to replace manual QA wherever practical.
 
+<<<<<<< HEAD
 Run tests with the project virtualenv interpreter (`.venv/bin/python -m pytest`).
+=======
+Run tests with the project virtualenv interpreter (`./venv/bin/python -m pytest`).
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 The system `python3` may be missing pinned dependencies (e.g. `nh3`), which
 shows up as import/collection errors that are environmental, not real failures.
 
@@ -172,10 +176,17 @@ Prefer tests that exercise real behavior over tests that inspect source code.
 Run locally before opening or approving a refactor PR:
 
 - `git diff --check` - whitespace and conflict-marker errors.
+<<<<<<< HEAD
 - `python3 -m py_compile <changed .py files>` - changed files compile.
 - Focused `pytest` on the changed files (use `.venv/bin/python -m pytest`).
 - `pytest` on neighboring / order-sensitive groups that share import state with
   the changed files.
+=======
+- `./venv/bin/python -m py_compile <changed .py files>` - changed files compile.
+- Focused `./venv/bin/python -m pytest` on the changed files.
+- `./venv/bin/python -m pytest` on neighboring / order-sensitive groups that
+  share import state with the changed files.
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 - When replacing boilerplate, `grep` for the old pattern to confirm no stragglers.
 - When changing a helper itself, validate in a fresh worktree so stale
   `__pycache__` or import state cannot mask a regression.

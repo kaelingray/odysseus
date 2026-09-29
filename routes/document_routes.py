@@ -1,12 +1,18 @@
-"""Document routes — CRUD for living documents with version history."""
+"""Backward-compat shim — canonical location is routes/document/document_routes.py.
 
-import uuid
-import logging
-from datetime import datetime, timezone
-from typing import Dict, Any, List, Optional
+This module is replaced in ``sys.modules`` by the canonical module object so
+that ``import routes.document_routes``, ``from routes.document_routes import
+X``, ``importlib.import_module("routes.document_routes")``, and the
+``import ... as droutes`` + ``droutes.SessionLocal = ...`` /
+``monkeypatch.setattr(droutes, ...)`` pattern used by multiple tests all
+operate on the *same* object the application actually uses. Keeps existing
+import paths working after slice 2m (#4082/#4071). Source-introspection tests
+read the canonical file by path.
+"""
 
-from fastapi import APIRouter, HTTPException, Query, Request, UploadFile, File, Form
+import sys as _sys
 
+<<<<<<< HEAD
 from sqlalchemy import case, func, or_
 from core.database import SessionLocal, Document, DocumentVersion
 from core.database import Session as DbSession
@@ -1715,3 +1721,8 @@ def setup_document_routes(session_manager, upload_handler=None) -> APIRouter:
             db.close()
 
     return router
+=======
+from routes.document import document_routes as _canonical  # noqa: F401
+
+_sys.modules[__name__] = _canonical
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc

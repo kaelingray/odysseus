@@ -5,6 +5,22 @@ application runtime instantiates ``src.memory.MemoryManager``, so keeping a
 parallel implementation here risks silent drift between import paths.
 """
 
+<<<<<<< HEAD
 from src.memory import MemoryManager, get_text_similarity, tokenize
 
 __all__ = ["MemoryManager", "get_text_similarity", "tokenize"]
+=======
+from src.memory import (
+    MemoryManager,
+    MemoryStoreUnreadable,
+    get_text_similarity,
+    tokenize,
+)
+
+__all__ = [
+    "MemoryManager",
+    "MemoryStoreUnreadable",
+    "get_text_similarity",
+    "tokenize",
+]
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc

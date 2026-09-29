@@ -24,7 +24,15 @@ def _add_handler():
 def _stub_store(monkeypatch):
     created = []
     monkeypatch.setattr(cr, "_fetch_contacts", lambda *a, **k: [])
+<<<<<<< HEAD
     monkeypatch.setattr(cr, "_create_contact", lambda name, email: created.append((name, email)) or True)
+=======
+    monkeypatch.setattr(
+        cr,
+        "_create_contact",
+        lambda name, email="", address="", phones=None: created.append((name, email, address, phones or [])) or True,
+    )
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
     return created
 
 
@@ -33,6 +41,7 @@ def test_null_name_does_not_crash(_stub_store):
     result = asyncio.run(handler({"name": None, "email": "x@y.com"}, _admin="admin"))
     assert result["success"] is True
     # name fell back to the email local-part instead of crashing.
+<<<<<<< HEAD
     assert _stub_store == [("x", "x@y.com")]
 
 
@@ -40,3 +49,20 @@ def test_null_email_is_rejected_cleanly(_stub_store):
     handler = _add_handler()
     result = asyncio.run(handler({"name": "Bob", "email": None}, _admin="admin"))
     assert result == {"success": False, "error": "Email required"}
+=======
+    assert _stub_store == [("x", "x@y.com", "", [])]
+
+
+def test_null_email_does_not_crash(_stub_store):
+    handler = _add_handler()
+    result = asyncio.run(handler({"name": "Bob", "email": None}, _admin="admin"))
+    assert result["success"] is True
+    assert _stub_store == [("Bob", "", "", [])]
+
+
+def test_phone_only_contact_is_allowed(_stub_store):
+    handler = _add_handler()
+    result = asyncio.run(handler({"name": "Bob", "email": None, "phone": "0805412 7841"}, _admin="admin"))
+    assert result["success"] is True
+    assert _stub_store == [("Bob", "", "", ["0805412 7841"])]
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc

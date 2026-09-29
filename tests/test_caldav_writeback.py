@@ -22,7 +22,13 @@ CAL_ID = _stable_cal_id(REMOTE_URL)
 
 
 class FakeEvent:
+<<<<<<< HEAD
     def __init__(self):
+=======
+    def __init__(self, url="https://p69-caldav.icloud.com/123/calendars/home/evt-1.ics"):
+        self.url = url
+        self.etag = '"abc123"'
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
         self.data = "OLD"
         self.saved = False
         self.deleted = False
@@ -39,6 +45,10 @@ class FakeCalendar:
         self.url = url
         self._existing = existing
         self.saved_ical = None
+<<<<<<< HEAD
+=======
+        self.created = FakeEvent(str(url).rstrip("/") + "/created.ics")
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 
     def event_by_uid(self, uid):
         if self._existing is None:
@@ -47,6 +57,10 @@ class FakeCalendar:
 
     def save_event(self, ical):
         self.saved_ical = ical
+<<<<<<< HEAD
+=======
+        return self.created
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 
 
 def _ev(**over):
@@ -91,6 +105,11 @@ def test_push_create_calls_save_event():
     res = push_event([cal], CAL_ID, _ev(), delete=False)
     assert res["ok"] and res.get("created")
     assert cal.saved_ical and "UID:evt-1" in cal.saved_ical
+<<<<<<< HEAD
+=======
+    assert res["calendar_url"] == REMOTE_URL
+    assert res["remote_href"].endswith("/created.ics")
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 
 
 def test_push_update_overwrites_existing():
@@ -100,6 +119,11 @@ def test_push_update_overwrites_existing():
     assert res["ok"] and res.get("updated")
     assert existing.saved and "SUMMARY:Moved" in existing.data
     assert cal.saved_ical is None  # used update path, not create
+<<<<<<< HEAD
+=======
+    assert res["remote_href"].endswith("evt-1.ics")
+    assert res["remote_etag"] == '"abc123"'
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 
 
 def test_push_delete_removes_existing():

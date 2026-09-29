@@ -27,6 +27,12 @@ def _setup(monkeypatch, store, user="alice"):
 
     mem = MagicMock()
     mem.load_all.return_value = list(store)
+<<<<<<< HEAD
+=======
+    # import_data reads through the strict loader so a store it cannot read is
+    # never overwritten (#5673); the double has to offer the same entry point.
+    mem.load_all_for_update.return_value = list(store)
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
     saved = {}
     mem.save.side_effect = lambda entries: saved.__setitem__("entries", entries)
 

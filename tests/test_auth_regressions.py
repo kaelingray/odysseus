@@ -334,6 +334,7 @@ def test_pop_notifications_owner_filtered():
 def test_admin_only_actions_set_contains_shell_runners():
     """The constant defining shell-executing action types must include
     the three risky entries. Catches accidental removal."""
+<<<<<<< HEAD
     from routes import task_routes
     # `_ADMIN_ONLY_ACTIONS` is a closure constant. Easiest pin: re-read
     # the source and check for the three risky entries + the admin gate
@@ -344,6 +345,13 @@ def test_admin_only_actions_set_contains_shell_runners():
     assert '"ssh_command"' in src
     # And the gate is wired into both create and update paths.
     assert "Action '" in src and "requires admin privileges" in src
+=======
+    from src.task_action_policy import ADMIN_ONLY_TASK_ACTIONS
+
+    assert "run_local" in ADMIN_ONLY_TASK_ACTIONS
+    assert "run_script" in ADMIN_ONLY_TASK_ACTIONS
+    assert "ssh_command" in ADMIN_ONLY_TASK_ACTIONS
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 
 
 def test_task_create_notification_default_allows_action_specific_defaults():

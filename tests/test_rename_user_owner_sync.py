@@ -70,12 +70,27 @@ def rename_endpoint(monkeypatch, tmp_path):
     return _route(ar.setup_auth_routes(am), "rename_user"), am, tmp_path
 
 
+<<<<<<< HEAD
 def _request(tmp_path, session_manager=None, token="t", research_handler=None, upload_handler=None):
+=======
+def _request(
+    tmp_path,
+    session_manager=None,
+    token="t",
+    research_handler=None,
+    upload_handler=None,
+    personal_docs_manager=None,
+):
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
     state = SimpleNamespace(
         invalidate_token_cache=lambda: None,
         session_manager=session_manager,
         research_handler=research_handler,
         upload_handler=upload_handler,
+<<<<<<< HEAD
+=======
+        personal_docs_manager=personal_docs_manager,
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
     )
     return SimpleNamespace(
         cookies={"odysseus_session": token},
@@ -106,6 +121,15 @@ def _force_sql_owner_migration_failure(monkeypatch):
         def filter(self, *_args, **_kwargs):
             return self
 
+<<<<<<< HEAD
+=======
+        def order_by(self, *_args, **_kwargs):
+            return self
+
+        def all(self):
+            return []
+
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
         def update(self, *_args, **_kwargs):
             raise RuntimeError("forced owner migration failure")
 
@@ -117,6 +141,15 @@ def _force_sql_owner_migration_failure(monkeypatch):
         def query(self, _model):
             return FailingQuery()
 
+<<<<<<< HEAD
+=======
+        def get_bind(self):
+            return SimpleNamespace(dialect=SimpleNamespace(name="postgresql"))
+
+        def get(self, _model, _key, **_kwargs):
+            return object()
+
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
         def rollback(self):
             self.rolled_back = True
 
@@ -467,6 +500,55 @@ def test_rename_updates_upload_metadata_owner(rename_endpoint):
     assert handler.resolve_upload(upload_id, owner="alice") is None
 
 
+<<<<<<< HEAD
+=======
+def test_rename_updates_personal_rag_upload_owner(rename_endpoint, monkeypatch):
+    endpoint, _am, tmp_path = rename_endpoint
+    from routes import personal_routes
+
+    monkeypatch.setattr(personal_routes, "UPLOADS_DIR", str(tmp_path / "personal_uploads"))
+    old_dir = Path(personal_routes._personal_upload_dir_for_owner("alice"))
+    old_file = old_dir / "note.txt"
+    old_file.write_text("private RAG note", encoding="utf-8")
+
+    manager_calls = []
+    rag_calls = []
+    rag = SimpleNamespace(
+        rename_owner=lambda old, new, path_map=None, path_prefixes=None: rag_calls.append(
+            (old, new, dict(path_map or {}), list(path_prefixes or []))
+        ) or {"success": True, "updated_count": 1},
+    )
+    personal_docs_manager = SimpleNamespace(
+        rag_manager=rag,
+        rename_directory=lambda old, new, path_map=None: manager_calls.append(
+            (old, new, dict(path_map or {}))
+        ),
+    )
+
+    asyncio.run(
+        endpoint(
+            "alice",
+            SimpleNamespace(username="alice2"),
+            _request(tmp_path, personal_docs_manager=personal_docs_manager),
+        )
+    )
+
+    new_dir = Path(personal_routes._personal_upload_dir_for_owner("alice2"))
+    new_file = new_dir / "note.txt"
+    assert old_file.exists() is False
+    assert new_file.read_text(encoding="utf-8") == "private RAG note"
+    assert manager_calls == [(str(old_dir), str(new_dir), {str(old_file): str(new_file)})]
+    assert rag_calls == [
+        (
+            "alice",
+            "alice2",
+            {str(old_file): str(new_file)},
+            [(str(old_dir), str(new_dir))],
+        )
+    ]
+
+
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 # ---------------------------------------------------------------------------
 # 5. Skills (SKILL.md frontmatter + _usage.json sidecar)
 # ---------------------------------------------------------------------------

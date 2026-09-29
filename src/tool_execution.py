@@ -15,10 +15,15 @@ import logging
 import os
 import pathlib
 import re
+<<<<<<< HEAD
+=======
+import stat
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 import sys
 import time
 from typing import Any, Awaitable, Callable, Dict, Optional, Tuple
 
+<<<<<<< HEAD
 
 
 from src.tool_security import is_public_blocked_tool, owner_is_admin_or_single_user
@@ -35,6 +40,48 @@ _AGENT_WORKDIR = DATA_DIR
 
 
 
+=======
+
+
+from src.tool_security import (
+    BUILTIN_EMAIL_TOOLS,
+    email_tool_policy_names,
+    is_public_blocked_tool,
+    owner_is_admin_or_single_user,
+)
+from src.tool_capabilities import ToolRunSecurityContext, blocked_tool_result
+from src.tool_approvals import ExactToolApproval
+from src.tool_policy import ToolPolicy
+from src.constants import (
+    MAX_OUTPUT_CHARS,
+    MAX_READ_CHARS,
+    MAX_DIFF_LINES,
+    AGENT_WORKSPACE_DIR,
+)
+from src.tool_utils import _truncate, get_mcp_manager
+
+
+class _MissingToolSecurityContext:
+    pass
+
+
+class _NoToolSecurityContext:
+    """Explicit sentinel for non-agent callers that have no run provenance."""
+
+
+_MISSING_TOOL_SECURITY_CONTEXT = _MissingToolSecurityContext()
+NO_TOOL_SECURITY_CONTEXT = _NoToolSecurityContext()
+
+# Persistent working directory for agent subprocesses.
+# Resolves to <repo_root>/data/agent_workspace, inside the bind-mounted volume
+# in Docker (/app/data), so files survive a rebuild as before. The subdirectory
+# rather than data/ itself keeps agent scratch files and dotfiles out of the
+# directory holding the session store and the auth database.
+_AGENT_WORKDIR = AGENT_WORKSPACE_DIR
+
+
+
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 # ---------------------------------------------------------------------------
 # Path confinement for read_file / write_file
 # ---------------------------------------------------------------------------
@@ -47,10 +94,22 @@ _AGENT_WORKDIR = DATA_DIR
 #   1. Sensitive-subpath deny list — checked FIRST. Blocks .ssh,
 #      .gnupg, shell rc files, token/env files even if the root above
 #      them is on the allowlist.
+<<<<<<< HEAD
 #   2. Allowlist — only the directories the agent legitimately needs
 #      (project data/, system tmp). $HOME is NOT on the default list.
 #   3. Opt-in extra roots — admin can add broader roots via the
 #      "tool_path_extra_roots" setting (list of path strings).
+=======
+#   2. Application-state deny (_is_app_state_path) - DATA_DIR holds the
+#      session store, auth database, app key and settings, so only
+#      _agent_readable_data_subdirs() is readable inside it.
+#   3. Allowlist - only the directories the agent legitimately needs
+#      (its data/ workspace, user content, system tmp). $HOME is NOT on
+#      the default list.
+#   4. Opt-in extra roots - admin can add broader roots via the
+#      "tool_path_extra_roots" setting. These cannot re-open DATA_DIR;
+#      rule 2 is independent of which root a path arrived through.
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 # ---------------------------------------------------------------------------
 
 _SENSITIVE_BASENAMES: set[str] = {
@@ -66,10 +125,23 @@ _SENSITIVE_FILE_PATTERNS: tuple[str, ...] = (
     "known_hosts",
 )
 
+<<<<<<< HEAD
+=======
+# Case-folded views used for matching. On a case-insensitive filesystem
+# (Windows, default macOS) ".SSH/AUTHORIZED_KEYS" and ".env" resolve to the
+# same protected files as their lowercase forms, so the deny-list has to fold
+# case before comparing — the sibling resolver already normcases paths for the
+# same reason. casefold (not os.path.normcase) because normcase is a no-op on
+# POSIX, which is exactly where the macOS read-exfil path lives.
+_SENSITIVE_BASENAMES_CF: frozenset[str] = frozenset(b.casefold() for b in _SENSITIVE_BASENAMES)
+_SENSITIVE_FILE_PATTERNS_CF: frozenset[str] = frozenset(p.casefold() for p in _SENSITIVE_FILE_PATTERNS)
+
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 
 def _is_sensitive_path(resolved: str) -> bool:
     """Return True if *resolved* falls under a sensitive directory or
     matches a sensitive filename — regardless of what root it sits under.
+<<<<<<< HEAD
     """
     parts = resolved.split(os.sep)
     filenames: set[str] = {parts[-1]} if parts else set()
@@ -87,6 +159,204 @@ def _is_sensitive_path(resolved: str) -> bool:
     return False
 
 
+=======
+
+    Matching is case-insensitive: on Windows / default macOS a case-variant
+    name (``.SSH``, ``AUTHORIZED_KEYS``, ``Id_Rsa``) points at the same file as
+    the lowercase form, so a case-sensitive check would let it slip past the
+    deny-list in every file tool that relies on it.
+    """
+    parts = [p.casefold() for p in resolved.split(os.sep)]
+    filename = parts[-1] if parts else ""
+
+    # Check if any path component is a sensitive directory.
+    for part in parts:
+        if part in _SENSITIVE_BASENAMES_CF:
+            return True
+
+    # Check filename against known sensitive files.
+    return filename in _SENSITIVE_FILE_PATTERNS_CF
+
+
+def _path_within(resolved: str, root: str) -> bool:
+    """True when *resolved* is *root* itself or sits underneath it.
+
+    Use the platform's path-case rules.  This helper participates in allow
+    decisions, so unconditional case-folding would let a distinct ``/DATA``
+    tree masquerade as a descendant of ``/data`` on case-sensitive systems.
+    """
+    resolved, root = os.path.normcase(resolved), os.path.normcase(root)
+    if resolved == root:
+        return True
+    try:
+        if os.path.commonpath([resolved, root]) == root:
+            return True
+    except ValueError:
+        return False
+    # normcase is intentionally conservative about assumptions (notably on
+    # POSIX), so consult the filesystem when paths exist.  This recognizes a
+    # case alias on a case-insensitive volume without treating distinct
+    # case-sensitive paths as the same allow root.
+    if os.path.exists(root):
+        candidate = resolved
+        while True:
+            try:
+                if os.path.exists(candidate) and os.path.samefile(candidate, root):
+                    return True
+            except OSError:
+                pass
+            parent = os.path.dirname(candidate)
+            if parent == candidate:
+                break
+            candidate = parent
+    return False
+
+
+def _path_within_conservative(resolved: str, root: str) -> bool:
+    """Containment for deny decisions, folding case to fail closed."""
+    resolved, root = resolved.casefold(), root.casefold()
+    if resolved == root:
+        return True
+    try:
+        return os.path.commonpath([resolved, root]) == root
+    except ValueError:
+        return False
+
+
+def _agent_readable_data_subdirs() -> tuple[str, ...]:
+    """The only parts of DATA_DIR the agent's file tools may reach.
+
+    The agent's own scratch folder, plus the directories of user content whose
+    paths the application itself gives to the model, which it would then be
+    unable to open.  These normally live under DATA_DIR; the documented mail
+    attachment override may instead name a disjoint external directory:
+
+      UPLOAD_DIR            the chat upload manifest renders "path=<p>" and
+                            says to read it with read_file (agent_loop.py)
+      MAIL_ATTACHMENTS_DIR  download_attachment returns the path and its own
+                            description tells the model to read it
+      PERSONAL_DIR          GET /api/personal returns a path per file and is
+                            reachable through the app_api tool; RUNBOOK_DIR
+                            nests under it
+      PERSONAL_UPLOADS_DIR  indexed as a personal-docs directory, which
+                            manage_rag lists as an absolute path
+
+    Order matters: the first entry is roots[0], which _resolve_search_root uses
+    when grep/glob/ls are called with no path.
+    """
+    from src.constants import (
+        DATA_DIR,
+        MAIL_ATTACHMENTS_DIR,
+        PERSONAL_DIR,
+        PERSONAL_UPLOADS_DIR,
+        UPLOAD_DIR,
+    )
+    configured = (
+        (AGENT_WORKSPACE_DIR, "agent_workspace", False),
+        (UPLOAD_DIR, "uploads", False),
+        # This has a documented environment override and may legitimately
+        # live outside DATA_DIR, but it must never equal/contain DATA_DIR.
+        (MAIL_ATTACHMENTS_DIR, "mail-attachments", True),
+        (PERSONAL_DIR, "personal_docs", False),
+        (PERSONAL_UPLOADS_DIR, "personal_uploads", False),
+    )
+    configured_data_dir = os.path.abspath(os.path.expanduser(str(DATA_DIR)))
+    data_dir = os.path.realpath(configured_data_dir)
+    safe: list[str] = []
+    for raw, internal_name, external_ok in configured:
+        value = str(raw or "").strip()
+        # These paths are security-policy roots, not ordinary allowlist
+        # entries. Internal roles may inherit a relative DATA_DIR, but must
+        # still resolve to their exact canonical child below. External mail
+        # overrides require an absolute, disjoint directory.
+        if not value:
+            continue
+        expanded = os.path.abspath(os.path.expanduser(value))
+        # A policy root must not acquire an exemption by redirecting its final
+        # path component to protected state or to an unrelated external tree.
+        if os.path.islink(expanded):
+            continue
+        resolved = os.path.realpath(expanded)
+        if os.path.exists(resolved) and not os.path.isdir(resolved):
+            continue
+        expected_internal = os.path.join(data_dir, internal_name)
+        expected_configured = os.path.join(configured_data_dir, internal_name)
+        inside_data = (
+            os.path.normcase(expanded)
+            in {
+                os.path.normcase(expected_configured),
+                os.path.normcase(expected_internal),
+            }
+            and resolved == expected_internal
+        )
+        external_safe = (
+            external_ok
+            and os.path.isabs(os.path.expanduser(value))
+            and resolved != data_dir
+            and os.path.dirname(resolved) != resolved
+            and not _path_within(data_dir, resolved)
+            and not _path_within(resolved, data_dir)
+        )
+        if not (inside_data or external_safe) or _is_sensitive_path(resolved):
+            continue
+        safe.append(resolved)
+    return tuple(safe)
+
+
+def _is_app_state_path(resolved: str) -> bool:
+    """True for anything under DATA_DIR that is not agent-readable.
+
+    DATA_DIR holds the session store, the auth database, the app encryption key
+    and the settings file. A model-supplied path must not reach those through
+    any root, so this is checked in both resolvers rather than expressed as an
+    absence from the allowlist: a workspace bound at or above the data
+    directory, or an opt-in tool_path_extra_roots entry covering it, would
+    otherwise put them back in reach.
+
+    A containment rule rather than a filename deny list, so state files added
+    later are covered without anyone remembering to list them, and so a user's
+    own settings.json or app.db inside a real workspace is not caught.
+    """
+    from src.constants import DATA_DIR
+    if not _path_within_conservative(resolved, os.path.realpath(DATA_DIR)):
+        return False
+    return not any(
+        _path_within(resolved, d)
+        for d in _agent_readable_data_subdirs()
+    )
+
+
+def _is_hardlinked_regular_file(resolved: str) -> bool:
+    """Reject inode aliases that can smuggle DATA_DIR state into an allow root."""
+    try:
+        target = os.stat(resolved, follow_symlinks=False)
+    except OSError:
+        return False
+    return stat.S_ISREG(target.st_mode) and getattr(target, "st_nlink", 1) > 1
+
+
+def _is_denied_tool_path(resolved: str) -> bool:
+    """Apply every path deny to a canonical traversal result."""
+    return (
+        _is_sensitive_path(resolved)
+        or _is_app_state_path(resolved)
+        or _is_hardlinked_regular_file(resolved)
+    )
+
+
+def _can_traverse_tool_path(resolved: str) -> bool:
+    """Allow walking a denied state parent only to reach safe carve-outs."""
+    if _is_sensitive_path(resolved):
+        return False
+    if not _is_app_state_path(resolved):
+        return True
+    return any(
+        _path_within(readable, resolved)
+        for readable in _agent_readable_data_subdirs()
+    )
+
+
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 def _tool_path_roots() -> list[str]:
     """Return the list of directory roots that read_file / write_file
     may touch. Default: project data/ + system temp dirs. Extra roots
@@ -94,9 +364,15 @@ def _tool_path_roots() -> list[str]:
     """
     roots: list[str] = []
 
+<<<<<<< HEAD
     # Project data directory — the agent's primary workspace.
     from src.constants import DATA_DIR
     roots.append(DATA_DIR)
+=======
+    # The agent's workspace plus the user-content directories inside data/.
+    # The rest of DATA_DIR is denied by _is_app_state_path.
+    roots.extend(_agent_readable_data_subdirs())
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 
     # /tmp (and its macOS realpath /private/tmp).
     roots.append("/tmp")
@@ -164,6 +440,15 @@ def _resolve_tool_path(raw_path: str) -> str:
             f"path '{raw_path}' is inside a sensitive directory "
             f"(e.g. .ssh, .gnupg) or matches a sensitive filename"
         )
+<<<<<<< HEAD
+=======
+    if _is_app_state_path(resolved):
+        raise ValueError(
+            f"path '{raw_path}' is inside the application state directory"
+        )
+    if _is_hardlinked_regular_file(resolved):
+        raise ValueError(f"path '{raw_path}' is a hard-linked file")
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 
     for root in _tool_path_roots():
         if resolved == root:
@@ -199,6 +484,15 @@ def _resolve_tool_path_in_workspace(workspace: str, raw_path: str) -> str:
             f"path '{raw_path}' is inside a sensitive directory "
             f"(e.g. .ssh, .gnupg) or matches a sensitive filename"
         )
+<<<<<<< HEAD
+=======
+    if _is_app_state_path(resolved):
+        raise ValueError(
+            f"path '{raw_path}' is inside the application state directory"
+        )
+    if _is_hardlinked_regular_file(resolved):
+        raise ValueError(f"path '{raw_path}' is a hard-linked file")
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
     if resolved != base:
         # normcase so containment holds on case-insensitive filesystems
         # (Windows, default macOS): it lowercases on Windows and is a no-op on
@@ -248,6 +542,13 @@ def vet_workspace(raw: str) -> Optional[str]:
     resolved = os.path.realpath(os.path.expanduser(raw))
     if not os.path.isdir(resolved) or _is_sensitive_path(resolved):
         return None
+<<<<<<< HEAD
+=======
+    # Refuse the bind rather than binding a workspace where every subsequent
+    # tool call would fail on the same deny list.
+    if _is_app_state_path(resolved):
+        return None
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
     # Reject filesystem roots: binding / (or a Windows drive/UNC root) as the
     # workspace would make every absolute path "inside" it, collapsing the
     # confinement into host-wide file access. A root is its own dirname, which
@@ -260,7 +561,17 @@ def vet_workspace(raw: str) -> Optional[str]:
 def agent_cwd() -> str:
     """Working directory for agent subprocesses (bash/python/background jobs):
     the active workspace when set, else the persistent data dir."""
+<<<<<<< HEAD
     return get_active_workspace() or _AGENT_WORKDIR
+=======
+    workspace = get_active_workspace()
+    if workspace:
+        return workspace
+    resolved = os.path.realpath(_AGENT_WORKDIR)
+    if resolved not in _agent_readable_data_subdirs():
+        raise RuntimeError("agent workspace is not a safe real directory")
+    return resolved
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 
 
 def get_mcp_manager():
@@ -275,16 +586,34 @@ def _resolve_search_root(raw_path: str) -> str:
 
     With a workspace active, the workspace folder is the root and a supplied
     path is confined inside it. Otherwise an empty path defaults to the agent's
+<<<<<<< HEAD
     primary root (project data dir) and a supplied path is confined by the
     global allowlist + sensitive-file policy.
+=======
+    primary root (its workspace under the project data dir) and a supplied path
+    is confined by the global allowlist + sensitive-file policy.
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
     """
     raw = (raw_path or "").strip()
     ws = get_active_workspace()
     if ws:
+<<<<<<< HEAD
         return os.path.realpath(ws) if not raw else _resolve_tool_path_in_workspace(ws, raw)
     if not raw:
         roots = _tool_path_roots()
         return roots[0] if roots else os.path.realpath(".")
+=======
+        # Resolve the empty case as the workspace path rather than returning
+        # it directly: returned unchecked it skipped both deny lists, so a
+        # bare ls listed whatever the workspace was bound to.
+        return _resolve_tool_path_in_workspace(ws, raw or ws)
+    if not raw:
+        roots = _tool_path_roots()
+        default_root = os.path.realpath(AGENT_WORKSPACE_DIR)
+        if default_root in roots and not _is_denied_tool_path(default_root):
+            return default_root
+        raise ValueError("default agent workspace is not a safe readable data subdirectory")
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
     return _resolve_tool_path(raw)
 
 logger = logging.getLogger(__name__)
@@ -323,6 +652,24 @@ _MCP_TOOL_MAP = {
     "web_fetch":      ("web_fetch",  "web_fetch"),
     "generate_image": ("image_gen",  "generate_image"),
 }
+_EMAIL_MCP_OWNER_ARG = "_odysseus_owner"
+
+
+def _parse_qualified_mcp_args(tool: str, content: str) -> tuple[Dict, Optional[str]]:
+    raw = (content or "").strip()
+    if not raw:
+        return {}, None
+    try:
+        parsed = json.loads(raw)
+    except (json.JSONDecodeError, TypeError):
+        if tool.startswith("mcp__email__"):
+            return {}, "Email MCP tool arguments must be a JSON object."
+        return {}, None
+    if not isinstance(parsed, dict):
+        if tool.startswith("mcp__email__"):
+            return {}, "Email MCP tool arguments must be a JSON object."
+        return {}, None
+    return parsed, None
 
 
 def _parse_generate_image(content: str) -> Dict:
@@ -372,8 +719,42 @@ _MCP_ARG_PARSERS: Dict[str, Callable[[str], Dict[str, str]]] = {
 }
 
 
+# Primary argument key(s) for the legacy line-parsed tools. When a fenced
+# block's content is a JSON object carrying one of these keys, it's structured
+# inline args (the relaxed parser's ```web_search {"query": "..."}``` shape) —
+# use the object directly instead of letting the line-based parsers wrap the
+# whole JSON string as the query/url/path/prompt. Keyed off membership only
+# (the primary key never changes), so this can't drift; an unrecognized object
+# safely falls through to the line-based parser, i.e. the previous behavior.
+#
+# IMPORTANT — this only covers the MCP path. _build_mcp_args is reached via
+# _call_mcp_tool only for _MCP_TOOL_MAP tools (so an entry outside that map is
+# dead, as manage_memory was). And of these, only generate_image has a live MCP
+# server today; web_search/web_fetch/read_file/write_file have none, so they run
+# via _direct_fallback -> TOOL_HANDLERS, whose handlers decode JSON themselves
+# (see ReadFileTool/WriteFileTool/WebSearchTool/WebFetchTool). The entries here
+# are kept as defense-in-depth for if/when those servers are added. The live
+# fix for each server-less tool lives in its handler. test_write_file_inline_
+# json_args and test_mcp_json_primary_keys_are_all_live pin both halves.
+_MCP_JSON_PRIMARY_KEYS: Dict[str, tuple] = {
+    "web_search":     ("query", "queries"),
+    "web_fetch":      ("url",),
+    "read_file":      ("path",),
+    "write_file":     ("path",),
+    "generate_image": ("prompt",),
+}
+
+
 def _build_mcp_args(tool: str, content: str) -> Dict:
     """Convert fenced-block text content to structured MCP arguments."""
+    primaries = _MCP_JSON_PRIMARY_KEYS.get(tool)
+    if primaries and content.strip().startswith("{"):
+        try:
+            decoded = json.loads(content.strip())
+        except (json.JSONDecodeError, TypeError):
+            decoded = None
+        if isinstance(decoded, dict) and any(k in decoded for k in primaries):
+            return decoded
     parser = _MCP_ARG_PARSERS.get(tool)
     return parser(content) if parser else {}
 
@@ -453,6 +834,8 @@ async def _direct_fallback(
     tool: str,
     content: str,
     progress_cb: Optional[Callable[[Dict], Awaitable[None]]] = None,
+    session_id: Optional[str] = None,
+    owner: Optional[str] = None,
 ) -> Optional[Dict]:
     _subproc_env = {
         **os.environ,
@@ -466,6 +849,11 @@ async def _direct_fallback(
         ctx = {
             "progress_cb": progress_cb,
             "subproc_env": _subproc_env,
+<<<<<<< HEAD
+=======
+            "session_id": session_id,
+            "owner": owner,
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
         }
 
         from src.agent_tools import TOOL_HANDLERS
@@ -483,10 +871,26 @@ async def _document_tool_dispatch(
     content: str,
     session_id: Optional[str] = None,
     owner: Optional[str] = None,
+<<<<<<< HEAD
 ) -> Optional[Dict]:
     """Route a document tool through TOOL_HANDLERS with the right ctx shape."""
     from src.agent_tools import TOOL_HANDLERS
     ctx = {"session_id": session_id, "owner": owner}
+=======
+    document_id: Optional[str] = None,
+    document_version: Optional[int] = None,
+    document_digest: Optional[str] = None,
+) -> Optional[Dict]:
+    """Route a document tool through TOOL_HANDLERS with the right ctx shape."""
+    from src.agent_tools import TOOL_HANDLERS
+    ctx = {
+        "session_id": session_id,
+        "owner": owner,
+        "doc_id": document_id,
+        "expected_document_version": document_version,
+        "expected_document_digest": document_digest,
+    }
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
     if tool in TOOL_HANDLERS:
         return await TOOL_HANDLERS[tool](content, ctx)
     return None
@@ -504,6 +908,15 @@ async def execute_tool_block(
     progress_cb: Optional[Callable[[Dict], Awaitable[None]]] = None,
     workspace: Optional[str] = None,
     tool_policy: Optional[Any] = None,
+<<<<<<< HEAD
+=======
+    security_context: (
+        ToolRunSecurityContext
+        | _NoToolSecurityContext
+        | _MissingToolSecurityContext
+    ) = _MISSING_TOOL_SECURITY_CONTEXT,
+    exact_approval: Optional[ExactToolApproval] = None,
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 ) -> Tuple[str, Dict]:
     """Execute a single tool block. Returns (description, result_dict).
 
@@ -511,16 +924,146 @@ async def execute_tool_block(
     cwd confine to it) for the duration of this call, then delegate. Reset on the
     way out so the binding never leaks to the next tool call.
     """
+<<<<<<< HEAD
     token = _active_workspace.set(workspace or None)
     try:
         return await _execute_tool_block_impl(
+=======
+    if security_context is _MISSING_TOOL_SECURITY_CONTEXT:
+        raise TypeError(
+            "execute_tool_block requires security_context; pass a "
+            "ToolRunSecurityContext or NO_TOOL_SECURITY_CONTEXT explicitly"
+        )
+    if (
+        not isinstance(security_context, ToolRunSecurityContext)
+        and security_context is not NO_TOOL_SECURITY_CONTEXT
+    ):
+        raise TypeError(
+            "security_context must be a ToolRunSecurityContext or "
+            "NO_TOOL_SECURITY_CONTEXT"
+        )
+
+    approval_claimed = False
+    if exact_approval is not None:
+        if (
+            not isinstance(security_context, ToolRunSecurityContext)
+            or not security_context.external_untrusted_context_seen
+            or not exact_approval.pending.external_untrusted_context_seen
+        ):
+            return (
+                f"{getattr(block, 'tool_type', None)}: BLOCKED",
+                {
+                    "error": "Exact-action approval requires an armed run security context.",
+                    "exit_code": 1,
+                    "blocked": True,
+                    "policy": "exact_tool_approval",
+                },
+            )
+        if (
+            exact_approval.pending.tool_name
+            in {"edit_document", "suggest_document", "update_document"}
+            and (
+                not exact_approval.pending.document_id
+                or exact_approval.pending.document_version is None
+                or not exact_approval.pending.document_digest
+            )
+        ):
+            return (
+                f"{getattr(block, 'tool_type', None)}: BLOCKED",
+                {
+                    "error": (
+                        "The approved document action has no sealed target and "
+                        "cannot be executed."
+                    ),
+                    "exit_code": 1,
+                    "blocked": True,
+                    "policy": "exact_tool_approval",
+                },
+            )
+        sealed_workspace = exact_approval.pending.workspace
+        if sealed_workspace and vet_workspace(sealed_workspace) != sealed_workspace:
+            return (
+                f"{getattr(block, 'tool_type', None)}: BLOCKED",
+                {
+                    "error": (
+                        "The approved workspace is no longer a valid safe "
+                        "directory. Review the action again."
+                    ),
+                    "exit_code": 1,
+                    "blocked": True,
+                    "policy": "exact_tool_approval",
+                },
+            )
+        approval_claimed = exact_approval.claim(
+            owner=owner,
+            session_id=session_id,
+            tool_name=getattr(block, "tool_type", None),
+            content=getattr(block, "content", None),
+            workspace=workspace,
+        )
+        if not approval_claimed:
+            return (
+                f"{getattr(block, 'tool_type', None)}: BLOCKED",
+                {
+                    "error": "The exact-action approval did not match this tool request.",
+                    "exit_code": 1,
+                    "blocked": True,
+                    "policy": "exact_tool_approval",
+                },
+            )
+
+    if isinstance(security_context, ToolRunSecurityContext) and not approval_claimed:
+        decision = security_context.decision_for(
+            getattr(block, "tool_type", None),
+            getattr(block, "content", None),
+        )
+        if not decision.allowed:
+            logger.warning(
+                "External-context policy blocked tool=%r",
+                getattr(block, "tool_type", None),
+            )
+            return blocked_tool_result(
+                getattr(block, "tool_type", None),
+                decision.reason or "Tool blocked by external-context policy.",
+            )
+
+    token = _active_workspace.set(workspace or None)
+    try:
+        output = await _execute_tool_block_impl(
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
             block,
             session_id=session_id,
             disabled_tools=disabled_tools,
             owner=owner,
             progress_cb=progress_cb,
             tool_policy=tool_policy,
+<<<<<<< HEAD
         )
+=======
+            approved_document_id=(
+                exact_approval.pending.document_id
+                if approval_claimed
+                else None
+            ),
+            approved_document_version=(
+                exact_approval.pending.document_version
+                if approval_claimed
+                else None
+            ),
+            approved_document_digest=(
+                exact_approval.pending.document_digest
+                if approval_claimed
+                else None
+            ),
+        )
+        if isinstance(security_context, ToolRunSecurityContext):
+            security_context.observe_tool_result(
+                getattr(block, "tool_type", None),
+                output[1],
+                getattr(block, "content", None),
+            )
+        return output
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
     finally:
         _active_workspace.reset(token)
 
@@ -532,6 +1075,12 @@ async def _execute_tool_block_impl(
     owner: Optional[str] = None,
     progress_cb: Optional[Callable[[Dict], Awaitable[None]]] = None,
     tool_policy: Optional[Any] = None,
+<<<<<<< HEAD
+=======
+    approved_document_id: Optional[str] = None,
+    approved_document_version: Optional[int] = None,
+    approved_document_digest: Optional[str] = None,
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 ) -> Tuple[str, Dict]:
     """Execute a single tool block. Returns (description, result_dict).
 
@@ -541,9 +1090,13 @@ async def _execute_tool_block_impl(
     """
     from src.tool_implementations import (
         do_search_chats, do_manage_tasks,
+<<<<<<< HEAD
         do_manage_skills, do_api_call, do_manage_endpoints,
         do_manage_mcp, do_manage_webhooks, do_manage_tokens,
         do_manage_settings, do_manage_notes,
+=======
+        do_manage_skills, do_api_call, do_manage_notes,
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
         do_manage_calendar,
         do_download_model, do_serve_model, do_list_served_models, do_stop_served_model,
         do_tail_serve_output,
@@ -556,8 +1109,30 @@ async def _execute_tool_block_impl(
         do_app_api,
     )
 
+    # HACK:
+    # This is a temporary workaround for a circular dependency between
+    # tool_execution.py and agent_tools.__init__.py.
+    #
+    # See issue #4277:
+    # refactor(tools): Move the registry from __init__.py into a
+    # dedicated registry.py module.
+    #
+    # Do not copy this pattern elsewhere. This import should be removed
+    # once the registry refactor is completed.
+    try:
+        agent_tools_mod = __import__("src.agent_tools", fromlist=["TOOL_HANDLERS"])
+        dynamic_handlers = getattr(agent_tools_mod, "TOOL_HANDLERS", {})
+    except ImportError:
+        dynamic_handlers = {}
+
     tool = block.tool_type
     content = block.content
+
+    # The block/disable gates below must match every policy-equivalent
+    # spelling of the tool name (bare email names alias their mcp__email__
+    # form — see email_tool_policy_names), not just the spelling the model
+    # happened to emit.
+    policy_names = email_tool_policy_names(tool)
 
     # Misformatted tool call detection: model put JSON inside ```python``` (or
     # similar) without naming the tool. Common with MiniMax-style outputs.
@@ -586,13 +1161,17 @@ async def _execute_tool_block_impl(
             pass
 
     # Reject tools that the user has disabled for this request
-    if disabled_tools and tool in disabled_tools:
+    if disabled_tools and not policy_names.isdisjoint(disabled_tools):
         desc = f"{tool}: BLOCKED"
         result = {"error": f"Tool '{tool}' is disabled by user.", "exit_code": 1}
         logger.info(f"Tool blocked by user: {tool}")
         return desc, result
 
+<<<<<<< HEAD
     if tool_policy and tool_policy.blocks(tool):
+=======
+    if tool_policy and any(tool_policy.blocks(name) for name in policy_names):
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
         desc = f"{tool}: BLOCKED"
         result = {
             "error": f"Execution of tool '{tool}' is forbade by the active guide-only policy.",
@@ -619,6 +1198,7 @@ async def _execute_tool_block_impl(
         logger.warning("Public tool policy blocked owner=%r tool=%s", owner, tool)
         return desc, result
 
+<<<<<<< HEAD
     # ask_user: the agent poses a multiple-choice question to the user to get a
     # decision/clarification. This is a pure UI-control marker — no subprocess,
     # no filesystem. It returns an `ask_user` payload that the agent loop turns
@@ -699,6 +1279,8 @@ async def _execute_tool_block_impl(
         }
         logger.info("Tool executed: %s", desc)
         return desc, result
+=======
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 
     # Background execution: a `bash` block whose first line is the `#!bg`
     # marker runs DETACHED — returns a job id immediately so the chat stream
@@ -713,10 +1295,13 @@ async def _execute_tool_block_impl(
             desc = f"bash (background): {short}"
             result = {
                 "output": (
-                    f"Started background job `{rec['id']}`. It is running detached — "
+                    f"Started background job `{rec['id']}`. It is running detached; "
                     f"do NOT wait for it or poll it. You will be automatically re-invoked "
                     f"with its full output when it finishes. Continue with other work, or "
-                    f"end your turn now and resume when the result arrives."
+                    f"end your turn now and resume when the result arrives. If the user "
+                    f"later asks to check progress or stop it, call the manage_bg_jobs "
+                    f"tool yourself (output or kill); do not tell them to run a tool "
+                    f"command, and do not surface raw tool syntax in your reply."
                 ),
                 "exit_code": 0,
                 "bg_job_id": rec["id"],
@@ -737,10 +1322,35 @@ async def _execute_tool_block_impl(
         desc = f"{tool}: {first_line}"
         result = await _direct_fallback(tool, content, progress_cb=progress_cb) \
             or {"error": f"{tool}: execution failed", "exit_code": 1}
+<<<<<<< HEAD
     elif tool in ("create_document", "update_document", "edit_document",
                   "suggest_document", "manage_documents"):
         desc = f"{tool}: {content.split(chr(10))[0][:80]}"
         result = await _document_tool_dispatch(tool, content, session_id, owner) \
+=======
+    elif tool in ("apply_patch", "todowrite"):
+        first_line = content.split(chr(10))[0][:80]
+        desc = f"{tool}: {first_line}" if first_line else tool
+        result = await _direct_fallback(tool, content, session_id=session_id, owner=owner) \
+            or {"error": f"{tool}: execution failed", "exit_code": 1}
+    elif tool == "manage_bg_jobs":
+        # Inspect/kill detached `bash` jobs; needs session_id to scope to chat.
+        desc = f"manage_bg_jobs: {content.split(chr(10))[0][:80]}"
+        result = await _direct_fallback(tool, content, session_id=session_id, owner=owner) \
+            or {"error": "manage_bg_jobs: execution failed", "exit_code": 1}
+    elif tool in ("create_document", "update_document", "edit_document",
+                  "suggest_document", "manage_documents"):
+        desc = f"{tool}: {content.split(chr(10))[0][:80]}"
+        result = await _document_tool_dispatch(
+            tool,
+            content,
+            session_id,
+            owner,
+            document_id=approved_document_id,
+            document_version=approved_document_version,
+            document_digest=approved_document_digest,
+        ) \
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
             or {"error": f"{tool}: execution failed", "exit_code": 1}
         if tool in ("edit_document", "suggest_document") and "title" in (result or {}):
             desc = f"{tool}: {result.get('title', '')}"
@@ -748,10 +1358,24 @@ async def _execute_tool_block_impl(
         query = content.split("\n")[0].strip()
         desc = f"search_chats: {query[:80]}"
         result = await do_search_chats(query, owner=owner)
-    elif tool in ("chat_with_model", "create_session", "list_sessions",
-                  "send_to_session", "pipeline",
-                  "manage_session", "manage_memory", "list_models",
-                  "ui_control", "ask_teacher"):
+    elif tool in ("chat_with_model", "ask_teacher", "list_models"):
+        # Migrated to the agent_tools registry (#3629): dispatched through
+        # TOOL_HANDLERS with the owner/session ctx these tools need, instead
+        # of the legacy dispatch_ai_tool elif. The impls live in
+        # src/agent_tools/model_interaction_tools.py.
+        first_line = content.split(chr(10))[0].strip()[:60]
+        desc = f"{tool}: {first_line}" if first_line else tool
+        result = await _document_tool_dispatch(tool, content, session_id, owner) \
+            or {"error": f"{tool}: execution failed", "exit_code": 1}
+    elif tool in ("create_session", "list_sessions", "send_to_session", "manage_session"):
+        # Migrated to the agent_tools registry (#3629): dispatched through
+        # TOOL_HANDLERS with the owner/session ctx these tools need. The impls
+        # live in src/agent_tools/session_tools.py.
+        first_line = content.split(chr(10))[0].strip()[:60]
+        desc = f"{tool}: {first_line}" if first_line else tool
+        result = await _document_tool_dispatch(tool, content, session_id, owner) \
+            or {"error": f"{tool}: execution failed", "exit_code": 1}
+    elif tool in ("pipeline", "manage_memory", "ui_control"):
         from src.ai_interaction import dispatch_ai_tool
         desc, result = await dispatch_ai_tool(tool, content, session_id, owner=owner)
     elif tool == "manage_tasks":
@@ -764,6 +1388,7 @@ async def _execute_tool_block_impl(
         first_line = content.split("\n")[0].strip()[:60]
         desc = f"api_call: {first_line}"
         result = await do_api_call(content)
+<<<<<<< HEAD
     elif tool == "manage_endpoints":
         desc = "manage_endpoints"
         result = await do_manage_endpoints(content, owner=owner)
@@ -779,6 +1404,13 @@ async def _execute_tool_block_impl(
     elif tool == "manage_settings":
         desc = "manage_settings"
         result = await do_manage_settings(content, owner=owner)
+=======
+    elif tool in ("manage_endpoints", "manage_mcp", "manage_webhooks", "manage_tokens", "manage_settings"):
+        # Registry-dispatched (agent_tools.admin_tools); owner threaded for ownership/admin checks.
+        desc = tool
+        result = await _direct_fallback(tool, content, owner=owner) \
+            or {"error": f"{tool}: execution failed", "exit_code": 1}
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
     elif tool == "manage_notes":
         desc = "manage_notes"
         result = await do_manage_notes(content, owner=owner)
@@ -854,22 +1486,89 @@ async def _execute_tool_block_impl(
     elif tool == "vault_unlock":
         desc = "vault_unlock"
         result = await do_vault_unlock(content, owner=owner)
+    elif tool in BUILTIN_EMAIL_TOOLS:
+        # Bare email tool name from fenced-block models (e.g. Ollama) — route to MCP email server.
+        # Non-admin owners never reach here: BUILTIN_EMAIL_TOOLS ⊆ NON_ADMIN_BLOCKED_TOOLS,
+        # so is_public_blocked_tool() above already rejected them.
+        mcp = get_mcp_manager()
+        qualified = f"mcp__email__{tool}"
+        desc = f"email: {tool}"
+        if mcp:
+            _raw = content.strip()
+            args = {}
+            _args_error = None
+            if _raw:
+                # A non-empty body is always meant to be the call's arguments,
+                # and every email tool takes a JSON object. Anything that
+                # isn't one is a correctable error — NOT a silent empty-args
+                # call, which would read the DEFAULT mailbox/folder instead of
+                # the one the model meant (#3966 class). Only an EMPTY body
+                # keeps the no-arg path (e.g. ```list_email_accounts```).
+                try:
+                    parsed = json.loads(_raw)
+                except (json.JSONDecodeError, TypeError) as _je:
+                    # Covers both `{account: "work"}` (looks like JSON, bad)
+                    # and `account: work` (not JSON at all).
+                    _args_error = (
+                        f"'{tool}' arguments are not valid JSON ({_je}). "
+                        'Send a JSON object, e.g. {"account": "work"} — '
+                        "keys and string values need double quotes."
+                    )
+                else:
+                    if isinstance(parsed, dict):
+                        args = parsed
+                    else:
+                        _args_error = (
+                            f"'{tool}' arguments must be a JSON object, "
+                            'e.g. {"uid": "..."} — got a JSON array/value instead.'
+                        )
+            if _args_error is not None:
+                result = {"error": _args_error, "exit_code": 1}
+            else:
+                if owner:
+                    args = dict(args)
+                    args[_EMAIL_MCP_OWNER_ARG] = owner
+                result = await mcp.call_tool(qualified, args)
+        else:
+            result = {"error": "MCP manager not available", "exit_code": 1}
     elif tool.startswith("mcp__"):
         # MCP tool dispatch
         mcp = get_mcp_manager()
         if mcp:
-            try:
-                args = json.loads(content) if content.strip().startswith("{") else {}
-            except (json.JSONDecodeError, TypeError):
-                args = {}
             desc = f"mcp: {tool}"
-            result = await mcp.call_tool(tool, args)
+            args, parse_error = _parse_qualified_mcp_args(tool, content)
+            if parse_error:
+                result = {"error": parse_error, "exit_code": 1}
+            else:
+                if tool.startswith("mcp__email__") and owner:
+                    args = dict(args)
+                    args[_EMAIL_MCP_OWNER_ARG] = owner
+                result = await mcp.call_tool(tool, args)
         else:
             desc = f"mcp: {tool}"
             result = {"error": "MCP manager not available", "exit_code": 1}
+
+
+    elif tool in dynamic_handlers:
+        first_line = content.split(chr(10))[0][:80]
+        desc = f"registry: {tool} {first_line}".strip()
+        res = await _direct_fallback(tool, content, progress_cb=progress_cb)
+
+        if isinstance(res, tuple):
+            desc, result = res
+        else:
+            result = res or {"error": f"{tool}: execution failed", "exit_code": 1}
+
     else:
         desc = f"unknown: {tool}"
+<<<<<<< HEAD
         result = {"error": f"Unknown tool type: {tool}", "exit_code": 1}
+=======
+        result = {
+            "error": f"Unknown tool: {tool}",
+            "exit_code": 1
+        }
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 
     logger.info(f"Tool executed: {desc} -> exit_code={result.get('exit_code', 'n/a')}")
     return desc, result

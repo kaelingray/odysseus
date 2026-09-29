@@ -51,7 +51,11 @@ def test_model_context_queries_models_for_v1_base(monkeypatch):
 
     monkeypatch.setattr(model_context.httpx, "get", fake_get)
 
+<<<<<<< HEAD
     assert model_context._query_context_length("http://127.0.0.1:8080/v1", "qwen3") == 32768
+=======
+    assert model_context._query_context_length("http://127.0.0.1:8080/v1", "qwen3") == (32768, True)
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
     assert seen == [
         "http://127.0.0.1:8080/slots",
         "http://127.0.0.1:8080/v1/models",

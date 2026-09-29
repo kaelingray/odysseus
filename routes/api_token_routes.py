@@ -31,6 +31,10 @@ ALLOWED_SCOPES = {
 TOKEN_PROFILES = {
     "chat": ["chat"],
     "codex_todos": ["todos:read", "todos:write"],
+<<<<<<< HEAD
+=======
+    "codex_documents": ["documents:read", "documents:write"],
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
     "codex_email_drafts": ["email:read", "email:draft", "documents:read", "documents:write"],
 }
 
@@ -159,6 +163,11 @@ def setup_api_token_routes() -> APIRouter:
             payload = await request.json()
         except Exception:
             payload = {}
+<<<<<<< HEAD
+=======
+        if not isinstance(payload, dict):
+            payload = {}
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
         with get_db_session() as db:
             token = db.query(ApiToken).filter(ApiToken.id == token_id).first()
             if not token:

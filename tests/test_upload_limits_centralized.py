@@ -80,11 +80,19 @@ def test_non_positive_env_rejected(monkeypatch, env):
 def test_routes_import_from_upload_limits_not_local_defs():
     """Routes must import the constant, not redefine it via raw getenv / literal."""
     forbidden = {
+<<<<<<< HEAD
         "routes/gallery_routes.py": [
             'int(os.getenv("ODYSSEUS_GALLERY_UPLOAD_MAX_BYTES"',
             'int(os.getenv("ODYSSEUS_GALLERY_TRANSFORM_UPLOAD_MAX_BYTES"',
         ],
         "routes/memory_routes.py": ['int(os.getenv("ODYSSEUS_MEMORY_IMPORT_MAX_BYTES"'],
+=======
+        "routes/gallery/gallery_routes.py": [
+            'int(os.getenv("ODYSSEUS_GALLERY_UPLOAD_MAX_BYTES"',
+            'int(os.getenv("ODYSSEUS_GALLERY_TRANSFORM_UPLOAD_MAX_BYTES"',
+        ],
+        "routes/memory/memory_routes.py": ['int(os.getenv("ODYSSEUS_MEMORY_IMPORT_MAX_BYTES"'],
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
         "routes/personal_routes.py": ['os.getenv("ODYSSEUS_PERSONAL_UPLOAD_MAX_BYTES"'],
         "routes/email_routes.py": ["EMAIL_COMPOSE_UPLOAD_MAX_BYTES = 25 * 1024 * 1024"],
         "routes/stt_routes.py": ["STT_MAX_AUDIO_BYTES = 25 * 1024 * 1024"],
@@ -97,8 +105,13 @@ def test_routes_import_from_upload_limits_not_local_defs():
 
     # And each imports from upload_limits.
     imports = {
+<<<<<<< HEAD
         "routes/gallery_routes.py": "GALLERY_UPLOAD_MAX_BYTES",
         "routes/memory_routes.py": "MEMORY_IMPORT_MAX_BYTES",
+=======
+        "routes/gallery/gallery_routes.py": "GALLERY_UPLOAD_MAX_BYTES",
+        "routes/memory/memory_routes.py": "MEMORY_IMPORT_MAX_BYTES",
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
         "routes/personal_routes.py": "PERSONAL_UPLOAD_MAX_BYTES",
         "routes/email_routes.py": "EMAIL_COMPOSE_UPLOAD_MAX_BYTES",
         "routes/stt_routes.py": "STT_MAX_AUDIO_BYTES",

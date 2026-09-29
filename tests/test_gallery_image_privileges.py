@@ -15,7 +15,11 @@ GATED_IMAGE_FUNCTIONS = {
 
 
 def _gallery_source():
+<<<<<<< HEAD
     return Path("routes/gallery_routes.py").read_text(encoding="utf-8")
+=======
+    return Path("routes/gallery/gallery_routes.py").read_text(encoding="utf-8")
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 
 
 def _function_sources(source):

@@ -163,6 +163,7 @@ def test_chatgpt_subscription_clears_previously_persisted_bearer(monkeypatch):
         )
     finally:
         db.close()
+<<<<<<< HEAD
 
 
 def test_chatgpt_subscription_fallback_auth_is_not_written_to_sessions_table(monkeypatch):
@@ -213,3 +214,5 @@ def test_chatgpt_subscription_fallback_auth_is_not_written_to_sessions_table(mon
         )
     finally:
         db.close()
+=======
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc

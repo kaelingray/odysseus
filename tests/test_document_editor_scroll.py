@@ -12,8 +12,13 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+<<<<<<< HEAD
 DOC_JS = (ROOT / "static/js/document.js").read_text()
 STYLE_CSS = (ROOT / "static/style.css").read_text()
+=======
+DOC_JS = (ROOT / "static/js/document.js").read_text(encoding="utf-8")
+STYLE_CSS = (ROOT / "static/style.css").read_text(encoding="utf-8")
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 
 
 def test_document_textarea_scrollbar_is_visible():

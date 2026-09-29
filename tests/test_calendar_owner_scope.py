@@ -151,6 +151,10 @@ def _install_calendar_db_stub(monkeypatch):
     db = types.ModuleType("core.database")
     db.SessionLocal = MagicMock()
     db.CalendarCal = _CalendarCal
+<<<<<<< HEAD
+=======
+    db.CalendarDeletedEvent = MagicMock()
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
     db.CalendarEvent = _CalendarEvent
     for name in [
         "Base",

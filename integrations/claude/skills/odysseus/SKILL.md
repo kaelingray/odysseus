@@ -102,6 +102,10 @@ python3 ~/.claude/skills/odysseus/scripts/odysseus_api.py POST /api/codex/memory
 
 ## Email draft + send
 
+<<<<<<< HEAD
+=======
+- Prefer `POST /api/codex/emails/draft-document` for agent-written email replies. It creates an editable Odysseus Document with `language: "email"` and does not touch IMAP/send.
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 - `POST /api/codex/emails/draft` — body matches `SendEmailRequest` (`to`, `cc`, `bcc`, `subject`, `body`, `body_html`, `attachments`, `account_id`, `in_reply_to`, `references`). Requires `email:draft` (or `email:send`).
 - `POST /api/codex/emails/send` — same body. Requires `email:send`. Never send without explicit user instruction.
 

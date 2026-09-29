@@ -1,5 +1,9 @@
 """Regression tests for owner-scoped model resolution in scheduled actions."""
 
+<<<<<<< HEAD
+=======
+import sqlite3
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 from datetime import datetime
 from types import SimpleNamespace
 
@@ -50,6 +54,7 @@ class _Db:
         self.closed = True
 
 
+<<<<<<< HEAD
 def _resolver_spy(monkeypatch, utility_result=("", "", {}), default_result=("http://llm", "model", {})):
     from src import endpoint_resolver
 
@@ -67,6 +72,21 @@ def _resolver_spy(monkeypatch, utility_result=("", "", {}), default_result=("htt
     monkeypatch.setattr(endpoint_resolver, "resolve_endpoint", fake_resolve)
     monkeypatch.setattr(endpoint_resolver, "resolve_utility_fallback_candidates", fake_fallbacks)
     return calls, fallback_calls
+=======
+def _resolver_spy(monkeypatch, candidates=None):
+    from src import task_endpoint
+
+    calls = []
+
+    def fake_candidates(*args, **kwargs):
+        calls.append(kwargs.get("owner"))
+        if candidates is None:
+            return [("http://llm", "model", {})]
+        return list(candidates)
+
+    monkeypatch.setattr(task_endpoint, "resolve_task_candidates", fake_candidates)
+    return calls
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 
 
 @pytest.mark.asyncio
@@ -87,7 +107,11 @@ async def test_classify_events_resolves_llm_for_task_owner(monkeypatch):
         location="",
     )
     db = _Db({FakeCalendarEvent: [event]})
+<<<<<<< HEAD
     calls, _fallback_calls = _resolver_spy(monkeypatch, utility_result=("http://llm", "model", {}))
+=======
+    calls = _resolver_spy(monkeypatch)
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 
     monkeypatch.setattr(database, "CalendarEvent", FakeCalendarEvent)
     monkeypatch.setattr(database, "SessionLocal", lambda: db)
@@ -96,7 +120,11 @@ async def test_classify_events_resolves_llm_for_task_owner(monkeypatch):
 
     assert ok is True
     assert "Scanned 1 upcoming event" in message
+<<<<<<< HEAD
     assert calls == [("utility", "alice")]
+=======
+    assert calls == ["alice"]
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
     assert db.closed is True
 
 
@@ -112,16 +140,26 @@ async def test_learn_sender_signatures_resolves_llm_for_task_owner(monkeypatch):
         def select(self, *_args, **_kwargs):
             return "OK", []
 
+<<<<<<< HEAD
         def search(self, *_args, **_kwargs):
             return "OK", [b"1 2 3"]
 
         def fetch(self, _uid, _query):
+=======
+        def uid(self, command, *_args):
+            if command == "SEARCH":
+                return "OK", [b"1 2 3"]
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
             return "OK", [(None, b"From: Writer <writer@example.com>\r\n\r\n")]
 
         def logout(self):
             return None
 
+<<<<<<< HEAD
     calls, _fallback_calls = _resolver_spy(monkeypatch, utility_result=("", "", {}), default_result=("", "", {}))
+=======
+    calls = _resolver_spy(monkeypatch, candidates=[])
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
     imap_owners = []
 
     def fake_imap_connect(_account_id=None, owner=""):
@@ -134,11 +172,119 @@ async def test_learn_sender_signatures_resolves_llm_for_task_owner(monkeypatch):
 
     assert ok is False
     assert message == "No LLM endpoint available"
+<<<<<<< HEAD
     assert calls == [("utility", "alice"), ("default", "alice")]
+=======
+    assert calls == ["alice"]
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
     assert imap_owners == ["alice"]
 
 
 @pytest.mark.asyncio
+<<<<<<< HEAD
+=======
+async def test_learn_sender_signatures_writes_owner_scoped_cache(monkeypatch, tmp_path):
+    from routes import email_helpers
+    from src import llm_core, task_endpoint
+    from src.builtin_actions import action_learn_sender_signatures
+
+    db_path = tmp_path / "scheduled_emails.db"
+    monkeypatch.setattr(email_helpers, "SCHEDULED_DB", db_path)
+    email_helpers._init_scheduled_db()
+
+    conn = sqlite3.connect(db_path)
+    try:
+        conn.execute(
+            """
+            INSERT INTO sender_signatures
+            (from_address, owner, signature_text, sample_count, last_built_at, model_used, source)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "writer@example.com",
+                "bob",
+                "bob cached signature",
+                3,
+                "2999-01-01T00:00:00",
+                "old-model",
+                "llm",
+            ),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    class FakeImap:
+        def select(self, *_args, **_kwargs):
+            return "OK", []
+
+        def uid(self, command, uid=None, query=None):
+            if command == "SEARCH":
+                return "OK", [b"1 2 3"]
+            if query and "HEADER.FIELDS" in query:
+                return "OK", [(None, b"From: Writer <writer@example.com>\r\n\r\n")]
+            return "OK", [
+                (
+                    None,
+                    (
+                        b"Thanks for the update.\r\n\r\n"
+                        b"Regards,\r\n"
+                        b"Writer Example\r\n"
+                        b"Example Co.\r\n"
+                        + str(uid).encode()
+                    ),
+                )
+            ]
+
+        def logout(self):
+            return None
+
+    imap_owners = []
+
+    def fake_imap_connect(_account_id=None, owner=""):
+        imap_owners.append(owner)
+        return FakeImap()
+
+    monkeypatch.setattr(email_helpers, "_imap_connect", fake_imap_connect)
+    monkeypatch.setattr(
+        task_endpoint,
+        "resolve_task_candidates",
+        lambda *args, **kwargs: [("http://llm", "alice-model", {})],
+    )
+
+    async def fake_llm_call_async(_candidates, **_kwargs):
+        return "Writer Example\nExample Co.\nwriter@example.com"
+
+    monkeypatch.setattr(llm_core, "llm_call_async_with_fallback", fake_llm_call_async)
+
+    message, ok = await action_learn_sender_signatures("alice")
+
+    assert ok is True
+    assert message.startswith("Learned sigs: 1 found")
+    assert imap_owners == ["alice", "alice"]
+
+    conn = sqlite3.connect(db_path)
+    try:
+        rows = conn.execute(
+            """
+            SELECT owner, signature_text, model_used
+            FROM sender_signatures
+            WHERE from_address = ?
+            ORDER BY owner
+            """,
+            ("writer@example.com",),
+        ).fetchall()
+    finally:
+        conn.close()
+
+    assert rows == [
+        ("alice", "Writer Example\nExample Co.\nwriter@example.com", "alice-model"),
+        ("bob", "bob cached signature", "old-model"),
+    ]
+
+
+@pytest.mark.asyncio
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 async def test_check_email_urgency_resolves_llm_candidates_for_task_owner(monkeypatch, tmp_path):
     from core import database
     from src.builtin_actions import TaskNoop, action_check_email_urgency
@@ -150,7 +296,11 @@ async def test_check_email_urgency_resolves_llm_candidates_for_task_owner(monkey
         from_address = _Column()
 
     db = _Db({FakeEmailAccount: []})
+<<<<<<< HEAD
     calls, fallback_calls = _resolver_spy(monkeypatch, utility_result=("http://llm", "model", {}))
+=======
+    calls = _resolver_spy(monkeypatch)
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(database, "EmailAccount", FakeEmailAccount)
@@ -159,6 +309,10 @@ async def test_check_email_urgency_resolves_llm_candidates_for_task_owner(monkey
     with pytest.raises(TaskNoop, match="no email accounts configured"):
         await action_check_email_urgency("alice")
 
+<<<<<<< HEAD
     assert calls == [("utility", "alice")]
     assert fallback_calls == ["alice"]
+=======
+    assert calls == ["alice"]
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
     assert db.closed is True

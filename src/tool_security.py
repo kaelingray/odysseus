@@ -8,15 +8,48 @@ from typing import Optional, Set
 logger = logging.getLogger(__name__)
 
 
+# Every tool exposed by the built-in email MCP server
+# (mcp_servers/email_server.py). Single source of truth: the fence tags
+# (TOOL_TAGS), bare-name dispatch (tool_execution), native-call mapping
+# (tool_schemas), and the non-admin blocklist below all derive from this set,
+# so a tool added to the email server can't become reachable under its bare
+# name without also being blocked for non-admins.
+BUILTIN_EMAIL_TOOLS = frozenset({
+    "list_email_accounts",
+    "list_emails",
+    "read_email",
+    "search_emails",
+    "scan_email_unsubscribes",
+    "unsubscribe_email",
+    "send_email",
+    "reply_to_email",
+    "draft_email",
+    "draft_email_reply",
+    "ai_draft_email_reply",
+    "archive_email",
+    "delete_email",
+    "mark_email_read",
+    "bulk_email",
+    "download_attachment",
+})
+
+
 # Tools regular/public users must not execute directly. These either expose
 # server/runtime access, sensitive user data, external messaging, persistent
-# state changes, or generic loopback/integration surfaces.
-NON_ADMIN_BLOCKED_TOOLS = {
+# state changes, or generic loopback/integration surfaces. All email tools are
+# included (SECURITY.md: email/MCP capabilities are privileged admin
+# functionality).
+NON_ADMIN_BLOCKED_TOOLS = BUILTIN_EMAIL_TOOLS | {
     "bash",
     "python",
+    "manage_bg_jobs",
     "read_file",
     "write_file",
     "edit_file",
+<<<<<<< HEAD
+=======
+    "apply_patch",
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
     "grep",
     "glob",
     "ls",
@@ -33,10 +66,6 @@ NON_ADMIN_BLOCKED_TOOLS = {
     "manage_settings",
     "api_call",
     "app_api",
-    "send_email",
-    "reply_to_email",
-    "list_emails",
-    "read_email",
     "resolve_contact",
     "manage_contact",
     "manage_calendar",
@@ -73,8 +102,26 @@ PLAN_MODE_READONLY_TOOLS = {
     "search_chats",
     "list_models",
     "list_sessions",
+<<<<<<< HEAD
     "list_emails",
     "read_email",
+=======
+    # Read-only email tools. list_email_accounts must be here because the
+    # bare/qualified alias gate in execute_tool_block works both ways: it has
+    # a native function schema, so plan mode's schema-derived bare denylist
+    # contains it — and without this allowlist entry that bare entry would
+    # also block the qualified mcp__email__list_email_accounts call that the
+    # MCP read-only filter deliberately allows.
+    "list_email_accounts",
+    "list_emails",
+    "read_email",
+    # Explicitly read-only rather than allowed-by-omission: this PR makes
+    # every BUILTIN_EMAIL_TOOLS name fence-taggable, so each one must be
+    # classified — see the plan-mode partition test in
+    # tests/test_email_registry_sync.py.
+    "search_emails",
+    "scan_email_unsubscribes",
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
     "list_served_models",
     "list_downloads",
     "list_cached_models",
@@ -101,19 +148,40 @@ PLAN_MODE_READONLY_TOOLS = {
 # here — read-only tools are covered by the allowlist. Keep in sync when adding
 # new mutating tools.
 _PLAN_MODE_KNOWN_MUTATORS = {
+<<<<<<< HEAD
     "write_file", "create_document", "edit_document", "update_document",
+=======
+    "write_file", "edit_file", "apply_patch", "todowrite",
+    "create_document", "edit_document", "update_document",
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
     "suggest_document", "manage_documents", "create_session", "manage_session",
     "send_to_session", "pipeline", "manage_memory", "manage_skills",
     "manage_tasks", "manage_notes", "manage_endpoints", "manage_mcp",
     "manage_webhooks", "manage_tokens", "manage_settings", "manage_contact",
     "manage_calendar", "api_call", "app_api", "ui_control",
     "send_email", "reply_to_email", "bulk_email", "delete_email",
+<<<<<<< HEAD
     "archive_email", "mark_email_read", "download_model", "serve_model",
+=======
+    "archive_email", "mark_email_read", "unsubscribe_email",
+    # The draft tools create documents and download_attachment writes to
+    # disk — mutating. They have no native schemas (yet), so without these
+    # static entries plan-mode safety for their bare fence tags would depend
+    # entirely on the MCP read-only inventory being present and current.
+    "draft_email", "draft_email_reply", "ai_draft_email_reply",
+    "download_attachment",
+    "download_model", "serve_model",
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
     "stop_served_model", "cancel_download", "adopt_served_model", "serve_preset",
     "generate_image", "edit_image", "trigger_research", "manage_research",
     # Shell is never read-only-safe; block it explicitly so it stays out of plan
     # mode even if the schema list fails to load.
     "bash", "python",
+<<<<<<< HEAD
+=======
+    # Controls shell processes (kill); plan mode can't run bash anyway.
+    "manage_bg_jobs",
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 }
 
 
@@ -148,6 +216,31 @@ def plan_mode_disabled_tools() -> Set[str]:
     return (all_names | _PLAN_MODE_KNOWN_MUTATORS) - PLAN_MODE_READONLY_TOOLS
 
 
+<<<<<<< HEAD
+=======
+def email_tool_policy_names(tool_name: str) -> frozenset:
+    """All policy-equivalent spellings of a tool name.
+
+    A bare built-in email tool name and its MCP-qualified mcp__email__<name>
+    form dispatch to the same email server tool, but policy sources spell
+    them either way — plan mode and the MCP settings toggle write qualified
+    names into denylists, chat-level toggles write bare ones. Every gate must
+    match against the full alias set, or a call in one spelling slips past a
+    denylist entry written in the other. Non-email names alias only to
+    themselves.
+    """
+    if not isinstance(tool_name, str):
+        return frozenset((tool_name,))
+    if tool_name in BUILTIN_EMAIL_TOOLS:
+        return frozenset((tool_name, f"mcp__email__{tool_name}"))
+    if tool_name.startswith("mcp__email__"):
+        bare = tool_name[len("mcp__email__"):]
+        if bare in BUILTIN_EMAIL_TOOLS:
+            return frozenset((tool_name, bare))
+    return frozenset((tool_name,))
+
+
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 def is_public_blocked_tool(tool_name: Optional[str]) -> bool:
     """Return True when a non-admin/public user must not execute this tool.
 
@@ -177,13 +270,22 @@ def owner_is_admin_or_single_user(owner: Optional[str]) -> bool:
     defense-in-depth for callers that bypass it (e.g. trusted loopback).
     """
     try:
+        from src.auth_helpers import _auth_disabled
+
+        if _auth_disabled():
+            return True
+
         from core.auth import AuthManager
 
         auth = AuthManager()
         if not auth.is_configured:
+<<<<<<< HEAD
             from src.auth_helpers import _auth_disabled
 
             return _auth_disabled()
+=======
+            return False
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
         return bool(owner and auth.is_admin(owner))
     except Exception as exc:
         logger.warning("Unable to evaluate owner admin status: %s", exc)
@@ -194,4 +296,17 @@ def blocked_tools_for_owner(owner: Optional[str]) -> Set[str]:
     """Tools to hide/disable for this owner under public-user policy."""
     if owner_is_admin_or_single_user(owner):
         return set()
+    return set(NON_ADMIN_BLOCKED_TOOLS)
+
+
+def delegated_credential_blocked_tools() -> Set[str]:
+    """Tools an agent run driven by a bearer API token must not reach.
+
+    Deliberately not owner-dependent. ``blocked_tools_for_owner`` asks whether
+    the OWNER is an admin, and for a token that question is always answered
+    yes: minting a token is an admin-only action, so the empty set comes back
+    for every token in existence. A token is a long-lived credential the owner
+    hands to a third party, so it is capped at the non-admin policy no matter
+    who minted it.
+    """
     return set(NON_ADMIN_BLOCKED_TOOLS)

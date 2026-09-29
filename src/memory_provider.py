@@ -157,7 +157,15 @@ class NativeMemoryProvider(MemoryProvider):
         if metadata:
             entry["metadata"] = dict(metadata)
 
+<<<<<<< HEAD
         memories = self.memory_manager.load_all()
+=======
+        # Strict load: read-modify-write. `load_all` degrades an unreadable
+        # store to [], which would save this single entry over everything
+        # already stored (issue #5673). The provider API has no error channel,
+        # so MemoryStoreUnreadable propagates to the caller.
+        memories = self.memory_manager.load_all_for_update()
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
         memories.append(entry)
         self.memory_manager.save(memories)
 
@@ -223,7 +231,14 @@ class NativeMemoryProvider(MemoryProvider):
         ]
 
     async def delete(self, memory_id: str, *, owner: Optional[str] = None) -> bool:
+<<<<<<< HEAD
         memories = self.memory_manager.load_all()
+=======
+        # Strict load for the same reason: `remaining` is derived from this
+        # list and saved back, so it must never be built from a store we
+        # failed to read.
+        memories = self.memory_manager.load_all_for_update()
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
         remaining = []
         deleted_id = None
 

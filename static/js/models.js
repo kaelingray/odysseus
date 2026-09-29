@@ -17,6 +17,10 @@ let API_BASE = '';
 let _cachedItems = []; // cached /api/models items for model-switch dropdown
 let _lastFetchTime = 0;
 let _fetchInflight = null;
+<<<<<<< HEAD
+=======
+let _fetchSeq = 0;
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 const _FETCH_CACHE_TTL = 30000; // 30s client-side cache for /api/models
 const COLLAPSE_KEY = 'odysseus-models-collapsed';
 const FAVORITES_KEY = 'odysseus-model-favorites';
@@ -163,20 +167,36 @@ function _buildModelRow(mid, url, displayName, endpointId, offline, modelType) {
   return row;
 }
 
-export async function refreshModels(force = false) {
+export async function refreshModels(force = false, opts = {}) {
   const box = document.getElementById('models');
-  if (!box) return;
+  const cacheOnly = !!(opts && opts.cacheOnly);
+  const hasCache = _cachedItems.length > 0;
 
   // Skip network fetch if cache is fresh and not forced — still re-render UI
+  // Cache-only is used for cheap picker/settings opens, but it must not turn a
+  // cold page load into an empty model list. If nothing has been fetched in this
+  // tab yet, do one normal load.
   const now = Date.now();
-  const needsFetch = force || _cachedItems.length === 0 || (now - _lastFetchTime) >= _FETCH_CACHE_TTL;
+  const needsFetch = !(cacheOnly && hasCache) && (force || _cachedItems.length === 0 || (now - _lastFetchTime) >= _FETCH_CACHE_TTL);
 
-  box.innerHTML = '';
+  const hadRenderedRows = !!(box && box.children && box.children.length);
+  if (box && (!needsFetch || !hadRenderedRows)) box.innerHTML = '';
   if (needsFetch) {
-    const _loadingSpinner = spinnerModule.create('', 'right', 'wave');
-    box.appendChild(_loadingSpinner.createElement());
-    _loadingSpinner.start();
+    let _loadingSpinner = null;
+    if (box) {
+      if (hadRenderedRows) {
+        box.classList.add('models-refreshing');
+      } else {
+        _loadingSpinner = spinnerModule.create('', 'right', 'wave');
+        box.appendChild(_loadingSpinner.createElement());
+        _loadingSpinner.start();
+      }
+    }
     try {
+<<<<<<< HEAD
+=======
+      if (force) _fetchInflight = null;
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
       if (!_fetchInflight) {
         // Pass ?refresh=true on forced refreshes so the BACKEND's 30s
         // per-user cache also gets bypassed. Without this, `force=true`
@@ -184,6 +204,7 @@ export async function refreshModels(force = false) {
         // back — newly-served endpoints don't appear until the cache
         // ages out. (Bug repro: serve a model, picker is empty for ~30s
         // even though the endpoint is in the DB and online.)
+<<<<<<< HEAD
         const _url = `${API_BASE}/api/models` + (force ? '?refresh=true' : '');
         _fetchInflight = fetch(_url, { credentials: 'same-origin' })
           .then(async (res) => {
@@ -193,16 +214,33 @@ export async function refreshModels(force = false) {
           .finally(() => { _fetchInflight = null; });
       }
       const data = await _fetchInflight;
+=======
+        const _seq = ++_fetchSeq;
+        const _url = `${API_BASE}/api/models` + (force ? '?refresh=true' : '?background=false');
+        _fetchInflight = fetch(_url, { credentials: 'same-origin' })
+          .then(async (res) => {
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+            return { data, seq: _seq };
+          })
+          .finally(() => { _fetchInflight = null; });
+      }
+      const { data, seq } = await _fetchInflight;
+      if (seq < _fetchSeq) return;
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
       _lastFetchTime = Date.now();
       _cachedItems = data.items || [];
     } catch (e) {
       console.error(e);
-      box.textContent = '(scan failed)';
+      if (box) box.textContent = '(scan failed)';
       return;
     } finally {
-      box.innerHTML = '';
+      try { _loadingSpinner && _loadingSpinner.stop && _loadingSpinner.stop(); } catch (_) {}
+      if (box) box.classList.remove('models-refreshing');
+      if (box) box.innerHTML = '';
     }
   }
+  if (!box) return;
   try {
 
     const collapseState = _loadCollapsed();
@@ -567,6 +605,7 @@ export async function refreshModels(force = false) {
           + '<span class="muted-sm">Ask an admin to configure model endpoints</span>';
       }
       box.appendChild(noModels);
+<<<<<<< HEAD
       // No endpoints yet: keep the welcome screen focused on first setup.
       const welcomeSub = document.getElementById('welcome-sub');
       if (welcomeSub) welcomeSub.innerHTML = 'Type <span class="setup-trigger-link" style="color:var(--accent,var(--red));font-weight:600;cursor:pointer;text-decoration:underline;" title="Click to launch setup">/setup</span> to get started.';
@@ -594,6 +633,8 @@ export async function refreshModels(force = false) {
             ];
         welcomeTip.textContent = tips[Math.floor(Math.random() * tips.length)];
       }
+=======
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
     }
   } catch (e) {
     console.error(e);

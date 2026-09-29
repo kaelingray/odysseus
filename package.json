@@ -1,12 +1,16 @@
 {
   "repository": {
     "type": "git",
+<<<<<<< HEAD
     "url": "https://github.com/pewdiepie-archdaemon/odysseus.git"
   },
   "devDependencies": {
     "@antithesishq/bombadil": "^0.3.2"
+=======
+    "url": "https://github.com/odysseus-dev/odysseus.git"
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
   },
-  "dependencies": {
-    "@anthropic-ai/sdk": "^0.98.0"
+  "devDependencies": {
+    "@antithesishq/bombadil": "^0.7.0"
   }
 }

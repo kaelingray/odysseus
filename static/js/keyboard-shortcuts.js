@@ -3,6 +3,10 @@
 // ============================================
 
 import { IS_MAC, isAltGrEvent } from './platform.js';
+<<<<<<< HEAD
+=======
+import { getSettings } from './appConfig.js';
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 
 const _defaultKeybinds = {
   search: 'ctrl+k', toggle_sidebar: 'ctrl+alt+b', new_session: 'ctrl+alt+n',
@@ -16,7 +20,11 @@ const _defaultKeybinds = {
 };
 
 export function _matchesCombo(e, combo, isMac = IS_MAC) {
+<<<<<<< HEAD
   if (!combo) return false;
+=======
+  if (typeof combo !== 'string' || !combo) return false;
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
   // Drop AltGr keystrokes so typing characters on non-US layouts can't fire a
   // Ctrl+Alt shortcut — e.g. the destructive delete_session. See platform.js.
   if (isAltGrEvent(e, isMac)) return false;
@@ -56,8 +64,7 @@ export function initKeyboardShortcuts(modules) {
   window._odysseusKeybinds = { ..._defaultKeybinds };
 
   // Load saved keybinds
-  fetch('/api/auth/settings', { credentials: 'same-origin' })
-    .then(r => r.json())
+  getSettings()
     .then(s => { if (s.keybinds) window._odysseusKeybinds = { ..._defaultKeybinds, ...s.keybinds }; })
     .catch(() => {});
 

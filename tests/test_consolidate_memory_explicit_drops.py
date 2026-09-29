@@ -29,24 +29,41 @@ class _FakeMM:
 
 def test_omitted_memory_survives_only_explicit_drop(monkeypatch):
     import src.memory
+<<<<<<< HEAD
     import src.endpoint_resolver
     import src.llm_core
+=======
+    import src.llm_core
+    import src.task_endpoint
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 
     _FakeMM.saved = None
     monkeypatch.setattr(src.memory, "MemoryManager", _FakeMM)
     monkeypatch.setattr(
+<<<<<<< HEAD
         src.endpoint_resolver, "resolve_endpoint",
         lambda kind, owner=None: ("http://x/v1", "model", {}),
     )
 
     async def fake_llm(**kwargs):
+=======
+        src.task_endpoint, "resolve_task_candidates",
+        lambda owner=None: [("http://x/v1", "model", {})],
+    )
+
+    async def fake_llm(_candidates, **kwargs):
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
         # Model keeps 'a', drops 'b', and OMITS 'c' entirely.
         return json.dumps({
             "keep": [{"id": "a", "text": "Likes dark roast coffee", "category": "preference"}],
             "drop": [{"id": "b", "reason": "duplicate of a"}],
         })
 
+<<<<<<< HEAD
     monkeypatch.setattr(src.llm_core, "llm_call_async", fake_llm)
+=======
+    monkeypatch.setattr(src.llm_core, "llm_call_async_with_fallback", fake_llm)
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 
     msg, ok = asyncio.run(ba.action_consolidate_memory("alice"))
 

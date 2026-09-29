@@ -27,12 +27,21 @@ def claim_json_entries(entries, owner):
     return count
 
 
+<<<<<<< HEAD
+=======
+def owner_arg(argv):
+    if len(argv) < 2 or not argv[1].strip():
+        return None
+    return argv[1].strip()
+
+
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 def main():
-    if len(sys.argv) < 2:
+    owner = owner_arg(sys.argv)
+    if not owner:
         print("Usage: python scripts/claim_ownerless.py <username>")
         sys.exit(1)
 
-    owner = sys.argv[1]
     print(f"Claiming all ownerless data for: {owner}\n")
 
     # 1. Memories (JSON files)

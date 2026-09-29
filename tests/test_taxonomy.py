@@ -50,6 +50,15 @@ def test_classify_examples(filename, expected_area, expected_sub):
     assert result.sub_area == expected_sub
 
 
+<<<<<<< HEAD
+=======
+def test_embedding_lanes_memory_file_keeps_specific_sub_area():
+    result = classify_test_path("tests/test_embedding_lanes_memory.py")
+    assert result.area == "services"
+    assert result.sub_area == "embedding_memory"
+
+
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 # --- classify_test_path: fallback --------------------------------------------
 
 def test_unknown_filename_is_uncategorized():

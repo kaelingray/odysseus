@@ -1,9 +1,17 @@
 """Tests for iCalendar TEXT escaping in calendar export (RFC 5545 §3.3.11)."""
+<<<<<<< HEAD
 from tests.test_null_owner_gates import _import_calendar_helpers
 
 
 def _esc():
     return _import_calendar_helpers()._ics_escape
+=======
+from tests.helpers.calendar_routes import import_calendar_routes
+
+
+def _esc():
+    return import_calendar_routes()._ics_escape
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 
 
 def test_escapes_comma_and_semicolon():
@@ -26,7 +34,11 @@ def test_empty_and_none_safe():
 
 
 def test_safe_ics_filename_strips_header_metacharacters():
+<<<<<<< HEAD
     safe_filename = _import_calendar_helpers()._safe_ics_filename
+=======
+    safe_filename = import_calendar_routes()._safe_ics_filename
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 
     assert (
         safe_filename('Work\r\nX-Injected: yes";/..\\evil')
@@ -35,7 +47,11 @@ def test_safe_ics_filename_strips_header_metacharacters():
 
 
 def test_safe_ics_filename_falls_back_for_empty_names():
+<<<<<<< HEAD
     safe_filename = _import_calendar_helpers()._safe_ics_filename
+=======
+    safe_filename = import_calendar_routes()._safe_ics_filename
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 
     assert safe_filename("////") == "calendar.ics"
     assert safe_filename(None) == "calendar.ics"

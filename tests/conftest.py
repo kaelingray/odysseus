@@ -26,6 +26,10 @@ try:
     import sqlalchemy  # noqa: F401
     import sqlalchemy.orm  # noqa: F401
     import core.database  # noqa: F401
+<<<<<<< HEAD
+=======
+    import src.database
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 except ImportError:
     pass  # not installed - the stubs below will handle it
 

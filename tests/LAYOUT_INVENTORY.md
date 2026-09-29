@@ -119,7 +119,11 @@ Read-only checks, run from the repo root on this branch. Note the real API is
 ```bash
 # Compute the area_cli set and confirm test_backup_cli_security.py is
 # area_security. Expected: 28 files, then "security".
+<<<<<<< HEAD
 .venv/bin/python - <<'PY'
+=======
+./venv/bin/python - <<'PY'
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 from pathlib import Path
 from tests._taxonomy import classify_test_path
 
@@ -138,7 +142,11 @@ rg -n "TestClient|FastAPI|create_app|SessionLocal|sqlite|dependency_overrides" \
   tests/test_*cli*.py tests/test_sessions_cli.py
 
 # Hard-coded flat paths to the exact CLI files outside tests/. Expected: no matches.
+<<<<<<< HEAD
 .venv/bin/python - <<'PY2' > /tmp/area_cli_paths.txt
+=======
+./venv/bin/python - <<'PY2' > /tmp/area_cli_paths.txt
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 from pathlib import Path
 from tests._taxonomy import classify_test_path
 
@@ -158,11 +166,16 @@ tokens only (plus the `tests/helpers/` directory rule), so the markers of the
 
 ## Validation for the future move PR
 
+<<<<<<< HEAD
 Run with the project venv (`.venv/bin/python`); system `python3` may miss
+=======
+Run with the project venv (`./venv/bin/python`); system `python3` may miss
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 pinned deps. Before the move, record the baseline; after, compare:
 
 ```bash
 # Selection must match the 28 files before and after the move.
+<<<<<<< HEAD
 .venv/bin/python tests/run_focus.py --dry-run --area cli
 .venv/bin/python -m pytest -m area_cli -q
 
@@ -178,6 +191,23 @@ pinned deps. Before the move, record the baseline; after, compare:
 # No stale flat-path references to the moved files. Expected: no matches
 # outside tests/cli/ itself.
 .venv/bin/python - <<'PY2' > /tmp/area_cli_paths.txt
+=======
+./venv/bin/python tests/run_focus.py --dry-run --area cli
+./venv/bin/python -m pytest -m area_cli -q
+
+# Moved files pass when targeted directly.
+./venv/bin/python -m pytest tests/cli/ -q
+
+# Whole-suite collection still succeeds (catches import/path breakage).
+./venv/bin/python -m pytest --collect-only -q
+
+# Taxonomy/runner infrastructure is unaffected.
+./venv/bin/python -m pytest tests/test_taxonomy.py tests/test_run_focus.py -q
+
+# No stale flat-path references to the moved files. Expected: no matches
+# outside tests/cli/ itself.
+./venv/bin/python - <<'PY2' > /tmp/area_cli_paths.txt
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 from pathlib import Path
 from tests._taxonomy import classify_test_path
 

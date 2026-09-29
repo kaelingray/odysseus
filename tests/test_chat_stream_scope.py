@@ -1,3 +1,7 @@
+<<<<<<< HEAD
+=======
+import re
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
 from pathlib import Path
 
 
@@ -13,7 +17,11 @@ def test_stream_render_helpers_are_visible_to_catch_block():
     assert "let _cancelThinkingTimer = () => {};" in outer_scope
     assert "let _removeThinkingSpinner = () => {};" in outer_scope
 
+<<<<<<< HEAD
     assert "_renderStream = () => {" in try_body
+=======
+    assert re.search(r"(?m)^\s*_renderStream\s*=", try_body)
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
     assert "_cancelThinkingTimer = () => {" in try_body
     assert "_removeThinkingSpinner = () => {" in try_body
     assert "function _renderStream()" not in try_body

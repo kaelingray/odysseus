@@ -41,6 +41,17 @@ module.exports = async ({ github, context, core }) => {
       break;
 
     case 'bug': {
+<<<<<<< HEAD
+=======
+      const revisionText = section('Odysseus Revision');
+      if (!/^[0-9a-f]{12} \(\d{4}-\d{2}-\d{2}\)$/i.test(revisionText)) {
+        failures.push(
+          '**Odysseus Revision** — paste the 12-character commit SHA and date, ' +
+          'for example `1fef4929cf1d (2026-08-11)`',
+        );
+      }
+
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
       if (!section('Install Method')) {
         failures.push('**Install Method** — select how you installed Odysseus');
       }
@@ -153,6 +164,19 @@ module.exports = async ({ github, context, core }) => {
     }
   }
 
+<<<<<<< HEAD
+=======
+  const LABEL_BAD  = 'needs more info';
+  const LABEL_GOOD = 'ready for review';
+
+  // Closed issues are no longer awaiting review.
+  // This also prevents later edits to closed issues from restoring the label.
+  if (issue.state === 'closed') {
+    await dropLabel(LABEL_GOOD);
+    return;
+  }
+
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
   // ── Find existing bot comment to update in-place ──────────────────────────
   const MARKER = '<!-- issue-description-check -->';
   const { data: comments } = await github.rest.issues.listComments({
@@ -160,9 +184,12 @@ module.exports = async ({ github, context, core }) => {
   });
   const existing = comments.find(c => c.user.type === 'Bot' && c.body.includes(MARKER));
 
+<<<<<<< HEAD
   const LABEL_BAD  = 'needs more info';
   const LABEL_GOOD = 'ready for review';
 
+=======
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
   if (failures.length === 0) {
     if (existing) {
       await github.rest.issues.deleteComment({ owner, repo, comment_id: existing.id });

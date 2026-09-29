@@ -24,6 +24,10 @@ export const KEYS = {
   SECTION_ORDER: 'sidebar-section-order',
   ADMIN_LAST_TAB: 'admin-last-tab',
   DENSITY: 'odysseus-density',
+<<<<<<< HEAD
+=======
+  UI_SCALE: 'odysseus-ui-scale',
+>>>>>>> e3035826bce87dca91a6036e133f0f892ef50bdc
   WORKSPACE: 'odysseus-workspace'
 };
 
